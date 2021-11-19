@@ -52,7 +52,7 @@ static char const g_FragmentShader[] = R"(
 
     uniform bool uIsTextured = false;
     uniform sampler2D uSampler0;
-    uniform vec4 uDiffuseColor;
+    uniform vec4 uDiffuseColor = vec4(1.0, 1.0, 1.0, 1.0);
 
     in vec4 GouraudBrightness;
     in vec2 TexCoord;
@@ -60,7 +60,7 @@ static char const g_FragmentShader[] = R"(
     out vec4 Color0Out;
 
     void main() {
-        vec4 color = uIsTextured ? texture(uSampler0, TexCoord) : uDiffuseColor;
+        vec4 color = uIsTextured ? texture(uSampler0, TexCoord) * uDiffuseColor : uDiffuseColor;
         color *= GouraudBrightness;
 
         Color0Out = color;
@@ -68,20 +68,21 @@ static char const g_FragmentShader[] = R"(
 )";
 
 osc::GouraudShader::GouraudShader() :
-    program{gl::CreateProgramFrom(
-        gl::CompileFromSource<gl::VertexShader>(g_VertexShader),
-        gl::CompileFromSource<gl::FragmentShader>(g_FragmentShader))},
-
-    uProjMat{gl::GetUniformLocation(program, "uProjMat")},
-    uViewMat{gl::GetUniformLocation(program, "uViewMat")},
-    uModelMat{gl::GetUniformLocation(program, "uModelMat")},
-    uNormalMat{gl::GetUniformLocation(program, "uNormalMat")},
-    uDiffuseColor{gl::GetUniformLocation(program, "uDiffuseColor")},
-    uLightDir{gl::GetUniformLocation(program, "uLightDir")},
-    uLightColor{gl::GetUniformLocation(program, "uLightColor")},
-    uViewPos{gl::GetUniformLocation(program, "uViewPos")},
-    uIsTextured{gl::GetUniformLocation(program, "uIsTextured")},
-    uSampler0{gl::GetUniformLocation(program, "uSampler0")} {
+    program{
+        gl::Shader{GL_VERTEX_SHADER, g_VertexShader},
+        gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader}
+    },
+    uProjMat{program, "uProjMat"},
+    uViewMat{program, "uViewMat"},
+    uModelMat{program, "uModelMat"},
+    uNormalMat{program, "uNormalMat"},
+    uDiffuseColor{program, "uDiffuseColor"},
+    uLightDir{program, "uLightDir"},
+    uLightColor{program, "uLightColor"},
+    uViewPos{program, "uViewPos"},
+    uIsTextured{program, "uIsTextured"},
+    uSampler0{program, "uSampler0"}
+{
 }
 
 

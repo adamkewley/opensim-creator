@@ -59,7 +59,7 @@ struct SplashScreen::Impl final {
 
     Mesh floorMesh = []() {
         Mesh rv{GenTexturedQuad()};
-        rv.scaleTexCoords(200.0f);
+        rv.ScaleTexCoords(200.0f);
         return rv;
     }();
 
@@ -67,7 +67,7 @@ struct SplashScreen::Impl final {
     glm::mat4 floorNormalMat = NormalMatrix(floorMat);
 
     // floor chequer texture
-    gl::Texture2D chequer = genChequeredFloorTexture();
+    gl::Texture2D chequer = GenChequeredFloorTexture();
 
     // main app logo, blitted to top of the screen
     gl::Texture2D logo = loadImageResourceIntoTexture("logo.png");
@@ -152,6 +152,7 @@ void osc::SplashScreen::draw() {
         gl::Uniform(s.uNormalMat, impl.floorNormalMat);
         gl::Uniform(s.uLightDir, impl.lightDir);
         gl::Uniform(s.uLightColor, impl.lightCol);
+        gl::Uniform(s.uDiffuseColor, {1.0f, 1.0f, 1.0f, 1.0f});
         gl::Uniform(s.uViewPos, impl.camera.getPos());
         gl::Uniform(s.uIsTextured, true);
         gl::ActiveTexture(GL_TEXTURE0);

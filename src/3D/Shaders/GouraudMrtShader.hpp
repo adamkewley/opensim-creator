@@ -12,24 +12,24 @@ namespace osc {
         gl::Program program;
 
         // vertex attrs - the thing being instanced
-        static constexpr gl::AttributeVec3 aPos = SHADER_LOC_VERTEX_POSITION;
-        static constexpr gl::AttributeVec2 aTexCoord = SHADER_LOC_VERTEX_TEXCOORD01;
-        static constexpr gl::AttributeVec3 aNormal = SHADER_LOC_VERTEX_NORMAL;
+        static constexpr gl::Attribute<gl::ShaderType::Vec3> aPos = SHADER_LOC_VERTEX_POSITION;
+        static constexpr gl::Attribute<gl::ShaderType::Vec2> aTexCoord = SHADER_LOC_VERTEX_TEXCOORD01;
+        static constexpr gl::Attribute<gl::ShaderType::Vec3> aNormal = SHADER_LOC_VERTEX_NORMAL;
 
         // instancing attrs - the instances - should be set with relevant divisor etc.
-        static constexpr gl::AttributeMat4x3 aModelMat = SHADER_LOC_MATRIX_MODEL;
-        static constexpr gl::AttributeMat3 aNormalMat = SHADER_LOC_MATRIX_NORMAL;
-        static constexpr gl::AttributeVec4 aDiffuseColor = SHADER_LOC_COLOR_DIFFUSE;
-        static constexpr gl::AttributeFloat aRimIntensity = SHADER_LOC_COLOR_RIM;
+        static constexpr gl::Attribute<gl::ShaderType::Mat4x3> aModelMat = SHADER_LOC_MATRIX_MODEL;
+        static constexpr gl::Attribute<gl::ShaderType::Mat3> aNormalMat = SHADER_LOC_MATRIX_NORMAL;
+        static constexpr gl::Attribute<gl::ShaderType::Vec4> aDiffuseColor = SHADER_LOC_COLOR_DIFFUSE;
+        static constexpr gl::Attribute<gl::ShaderType::Float> aRimIntensity = SHADER_LOC_COLOR_RIM;
 
         // uniforms
-        gl::UniformMat4 uProjMat;
-        gl::UniformMat4 uViewMat;
-        gl::UniformVec3 uLightDir;
-        gl::UniformVec3 uLightColor;
-        gl::UniformVec3 uViewPos;
-        gl::UniformBool uIsTextured;
-        gl::UniformSampler2D uSampler0;
+        gl::Uniform<gl::ShaderType::Mat4> uProjMat;
+        gl::Uniform<gl::ShaderType::Mat4> uViewMat;
+        gl::Uniform<gl::ShaderType::Vec3> uLightDir;
+        gl::Uniform<gl::ShaderType::Vec3> uLightColor;
+        gl::Uniform<gl::ShaderType::Vec3> uViewPos;
+        gl::Uniform<gl::ShaderType::Bool> uIsTextured;
+        gl::Uniform<gl::ShaderType::Sampler2D> uSampler0;
 
         GouraudMrtShader();
     };

@@ -1394,7 +1394,6 @@ namespace {
             ImGui::End();
         }
 
-
         if (impl.st->showing.coordinateEditor) {
             if (ImGui::Begin("Coordinate Editor")) {
                 impl.ui.coordEditor.draw(impl.st->editedModel.updUiModel());
@@ -1408,10 +1407,6 @@ namespace {
             }
 
             FdParamsEditorPopup{}.draw("simulation parameters", impl.st->simParams);
-        }
-
-        if (impl.resetPerFrame.subpanelRequestedEarlyExit) {
-            return;
         }
 
         // apply any updates made during this frame (can throw)

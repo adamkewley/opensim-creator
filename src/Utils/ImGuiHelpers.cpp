@@ -59,12 +59,11 @@ osc::Rect osc::ContentRegionAvailScreenRect()
     return Rect{topLeft, bottomRight};
 }
 
-void osc::DrawTextureAsImGuiImage(gl::Texture2D& t, glm::vec2 dims)
+void osc::DrawTextureAsImGuiImage(gl::Texture& t, glm::vec2 dims)
 {
-    void* textureHandle = reinterpret_cast<void*>(static_cast<uintptr_t>(t.get()));
     ImVec2 uv0{0.0f, 1.0f};
     ImVec2 uv1{1.0f, 0.0f};
-    ImGui::Image(textureHandle, dims, uv0, uv1);
+    ImGui::Image(t.getVoidHandle(), dims, uv0, uv1);
 }
 
 bool osc::IsAnyKeyDown(nonstd::span<int const> keys)
@@ -140,7 +139,7 @@ void osc::DrawAlignmentAxesOverlayInBottomRightOf(glm::mat4 const& viewMtx, Rect
     float fontSize = ImGui::GetFontSize();
     float circleRadius = fontSize/1.5f;
     float padding = circleRadius + 3.0f;
-    glm::vec2 origin{renderRect.p1.x, renderRect.p2.y};
+    glm::vec2 origin{renderRect.topLeft.x, renderRect.bottomRight.y};
     origin.x += linelen + padding;
     origin.y -= linelen + padding;
 

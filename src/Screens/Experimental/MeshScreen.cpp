@@ -19,7 +19,7 @@ struct osc::MeshScreen::Impl final {
     GouraudShader shader;
     //Mesh m{SimTKLoadMesh("/home/adam/Desktop/OpenSim_Model_Files/Geometry/Thorax_Pelvis_PectoralGirdle.obj")};
     Mesh m{GenTexturedQuad()};
-    gl::Texture2D chequer = genChequeredFloorTexture();
+    gl::Texture2D chequer = GenChequeredFloorTexture();
     PolarPerspectiveCamera camera;
 };
 
@@ -99,19 +99,19 @@ void osc::MeshScreen::draw() {
     BasicPerfTimer t;
     {
         auto g = t.measure();
-        Line const& ray = st.camera.unprojectTopLeftPosToWorldRay(App::cur().getMouseState().pos, App::cur().dims());
-        if (st.m.getClosestRayTriangleCollisionModelspace(ray)) {
+        Ray const& ray = st.camera.unprojectTopLeftPosToWorldRay(App::cur().getMouseState().pos, App::cur().dims());
+        if (st.m.GetClosestRayTriangleCollisionModelspace(ray)) {
             ImGui::Text("hit");
         }
     }
     ImGui::Text("%.2f", t.micros());
 
-    auto tcs = st.m.getTexCoords();
+    auto tcs = st.m.GetTexCoords();
     std::vector<glm::vec2> texCoords;
     for (glm::vec2 const& tc : tcs) {
         texCoords.push_back(tc*1.001f);
     }
-    st.m.setTexCoords(texCoords);
+    st.m.SetTexCoords(texCoords);
 
 
 

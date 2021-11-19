@@ -424,7 +424,7 @@ namespace {
     // returns the groundspace bounds of the mesh
     AABB CalcBounds(Mesh const& mesh, glm::mat4 const& modelMtx)
     {
-        AABB modelspaceBounds = mesh.getAABB();
+        AABB modelspaceBounds = mesh.GetAABB();
         return AABBApplyXform(modelspaceBounds, modelMtx);
     }
 
@@ -1649,7 +1649,7 @@ namespace {
     Mesh generateFloorMesh()
     {
         Mesh m{GenTexturedQuad()};
-        m.scaleTexCoords(200.0f);
+        m.ScaleTexCoords(200.0f);
         return m;
     }
 
@@ -1793,7 +1793,7 @@ namespace {
             lightDir = glm::normalize(mp + -up);
         }
 
-        glm::vec3 lightCol = {248.0f / 255.0f, 247.0f / 255.0f, 247.0f / 255.0f};
+        glm::vec3 lightCol = {1.0f, 1.0f, 1.0f};
 
         glm::mat4 projMat = camera.getProjMtx(VecAspectRatio(dims));
         glm::mat4 viewMat = camera.getViewMtx();
@@ -1817,6 +1817,8 @@ namespace {
         if (true) {
             GouraudShader& shader = App::cur().getShaderCache().getShader<GouraudShader>();
 
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            gl::Enable(GL_BLEND);
             gl::UseProgram(shader.program);
             gl::Uniform(shader.uProjMat, projMat);
             gl::Uniform(shader.uViewMat, viewMat);
@@ -1893,7 +1895,7 @@ namespace {
             gl::Uniform(eds.uSampler0, gl::textureIndex<GL_TEXTURE0>());
             gl::Uniform(eds.uRimRgba,  glm::vec4{0.4f, 0.4f, 0.4f, 0.65f});
             gl::Uniform(eds.uRimThickness, 1.0f / VecLongestDimVal(dims));
-            auto quadMesh = App::meshes().getTexturedQuadMesh();
+            std::shared_ptr<Mesh> quadMesh = App::meshes().getTexturedQuadMesh();
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             gl::Enable(GL_BLEND);
             gl::BindVertexArray(quadMesh->GetVertexArray());
@@ -2421,7 +2423,7 @@ namespace {
             dt.mesh = m_FloorMesh;
             dt.modelMatrix = GetFloorModelMtx();
             dt.normalMatrix = NormalMatrix(dt.modelMatrix);
-            dt.color = {0.0f, 0.0f, 0.0f, 1.0f};  // doesn't matter: it's textured
+            dt.color = m_Colors.FloorTint;
             dt.rimColor = 0.0f;
             dt.maybeDiffuseTex = m_FloorChequerTex;
             return dt;
@@ -2509,11 +2511,11 @@ namespace {
             }
 
             // emit "legs"
-            Segment cylinderline{{0.0f, -1.0f, 0.0f}, {0.0f, +1.0f, 0.0f}};
+            Line cylinderline{{0.0f, -1.0f, 0.0f}, {0.0f, +1.0f, 0.0f}};
             for (int i = 0; i < 3; ++i) {
                 glm::vec3 dir = {0.0f, 0.0f, 0.0f};
                 dir[i] = 4.0f * legLen[i] * GetSphereRadius();
-                Segment axisline{origin, origin + rotation*dir};
+                Line axisline{origin, origin + rotation*dir};
 
                 float frameAxisThickness = GetSphereRadius()/2.0f;
                 glm::vec3 prescale = {frameAxisThickness, 1.0f, frameAxisThickness};
@@ -2548,9 +2550,9 @@ namespace {
             }
 
             glm::vec2 sceneDims = RectDims(sceneRect);
-            glm::vec2 relMousePos = mousePos - sceneRect.p1;
+            glm::vec2 relMousePos = mousePos - sceneRect.topLeft;
 
-            Line ray = GetCamera().unprojectTopLeftPosToWorldRay(relMousePos, sceneDims);
+            Ray ray = GetCamera().unprojectTopLeftPosToWorldRay(relMousePos, sceneDims);
             bool hittestMeshes = IsMeshesInteractable();
             bool hittestBodies = IsBodiesInteractable();
             bool hittestJointCenters = IsJointCentersInteractable();
@@ -2580,7 +2582,7 @@ namespace {
                     continue;
                 }
 
-                RayCollision rc = drawable.mesh->getRayMeshCollisionInWorldspace(drawable.modelMatrix, ray);
+                RayCollision rc = drawable.mesh->GetRayMeshCollisionInWorldspace(drawable.modelMatrix, ray);
                 if (rc.hit && rc.distance < closestDist) {
                     closestID = drawable.id;
                     closestDist = rc.distance;
@@ -2632,7 +2634,7 @@ namespace {
         std::shared_ptr<Mesh> m_FloorMesh = std::make_shared<Mesh>(generateFloorMesh());
 
         // chequered floor texture
-        std::shared_ptr<gl::Texture2D> m_FloorChequerTex = std::make_shared<gl::Texture2D>(genChequeredFloorTexture());
+        std::shared_ptr<gl::Texture2D> m_FloorChequerTex = std::make_shared<gl::Texture2D>(GenChequeredFloorTexture());
 
         // main 3D scene camera
         PolarPerspectiveCamera m_3DSceneCamera = []() {
@@ -2664,10 +2666,11 @@ namespace {
             glm::vec4 FaintConnection{0.6f, 0.6f, 0.6f, 1.0f};
             glm::vec4 SolidConnection{0.0f, 0.0f, 0.0f, 1.0f};
             glm::vec4 TransparentFaintConnection{0.0f, 0.0f, 0.0f, 0.2f};
-            glm::vec4 SceneBackground{0.89f, 0.89f, 0.89f, 1.0f};
+            glm::vec4 SceneBackground{0.95f, 0.95f, 0.95f, 1.0f};
             glm::vec4 JointFrameCore{0.8f, 0.8f, 0.8f, 1.0f};
+            glm::vec4 FloorTint{1.0f, 1.0f, 1.0f, 0.7f};
         } m_Colors;
-        static constexpr std::array<char const*, 9> g_ColorNames = {
+        static constexpr std::array<char const*, 10> g_ColorNames = {
             "mesh",
             "unassigned mesh",
             "ground",
@@ -2677,6 +2680,7 @@ namespace {
             "transparent faint connection line",
             "scene background",
             "joint frame core",
+            "floor tint",
         };
         static_assert(sizeof(decltype(m_Colors))/sizeof(glm::vec4) == g_ColorNames.size());
 
@@ -3431,6 +3435,18 @@ namespace {
                     m_ImGuizmoState.mode = m_ImGuizmoState.mode == ImGuizmo::LOCAL ? ImGuizmo::WORLD : ImGuizmo::LOCAL;
                 }
                 m_ImGuizmoState.op = ImGuizmo::SCALE;
+                return true;
+            } else if (ImGui::IsKeyDown(SDL_SCANCODE_UP)) {
+                m_Shared->UpdCamera().phi += glm::radians(10.0f);
+                return true;
+            } else if (ImGui::IsKeyDown(SDL_SCANCODE_DOWN)) {
+                m_Shared->UpdCamera().phi -= glm::radians(10.0f);
+                return true;
+            } else if (ImGui::IsKeyDown(SDL_SCANCODE_LEFT)) {
+                m_Shared->UpdCamera().theta -= glm::radians(10.0f);
+                return true;
+            } else if (ImGui::IsKeyDown(SDL_SCANCODE_RIGHT)) {
+                m_Shared->UpdCamera().theta += glm::radians(10.0f);
                 return true;
             } else {
                 return false;
@@ -4333,7 +4349,7 @@ namespace {
             // zoom in/out buttons?
             {
                 Rect sceneRect = m_Shared->Get3DSceneRect();
-                glm::vec2 trPos = {sceneRect.p1.x + 100.0f, sceneRect.p2.y - 55.0f};
+                glm::vec2 trPos = {sceneRect.topLeft.x + 100.0f, sceneRect.bottomRight.y - 55.0f};
                 ImGui::SetCursorScreenPos(trPos);
 
                 if (ImGui::Button(ICON_FA_SEARCH_MINUS)) {
@@ -4396,7 +4412,7 @@ namespace {
                 Rect sceneRect = m_Shared->Get3DSceneRect();
                 glm::vec2 textDims = ImGui::CalcTextSize(text);
 
-                ImGui::SetCursorScreenPos(sceneRect.p2 - textDims - framePad - margin);
+                ImGui::SetCursorScreenPos(sceneRect.bottomRight - textDims - framePad - margin);
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, framePad);
                 ImGui::PushStyleColor(ImGuiCol_Button, OSC_POSITIVE_RGBA);
                 if (ImGui::Button(text)) {
@@ -4519,8 +4535,8 @@ namespace {
             Rect sceneRect = m_Shared->Get3DSceneRect();
 
             ImGuizmo::SetRect(
-                sceneRect.p1.x,
-                sceneRect.p1.y,
+                sceneRect.topLeft.x,
+                sceneRect.topLeft.y,
                 RectDims(sceneRect).x,
                 RectDims(sceneRect).y);
             ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());

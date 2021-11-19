@@ -165,8 +165,11 @@ float osc::UndoableUiModel::getReccommendedScaleFactor() const {
 
 void osc::UndoableUiModel::updateIfDirty() {
     if (!m_Impl->m_Current.isDirty()) {
+        log::error("not dirty");
         return;
     }
+
+    log::error("dirty");
 
     try {
         m_Impl->m_Current.updateIfDirty();

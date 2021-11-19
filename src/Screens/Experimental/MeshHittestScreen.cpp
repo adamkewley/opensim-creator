@@ -97,7 +97,7 @@ struct osc::MeshHittestScreen::Impl final {
     bool isMousedOver = false;
     glm::vec3 hitpos = {0.0f, 0.0f, 0.0f};
 
-    Line ray;
+    Ray ray;
 };
 
 

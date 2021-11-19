@@ -254,7 +254,6 @@ void osc::UiModel::updateIfDirty() {
 
     auto overallTimerGuard = overallTimer.measure();
 
-    bool modelWasDirty = m_Impl->m_ModelIsDirty;
     if (m_Impl->m_ModelIsDirty) {
         auto modelUpdateTimerGuard = modelUpdateTimer.measure();
         m_Impl->m_Model->finalizeFromProperties();
@@ -278,7 +277,7 @@ void osc::UiModel::updateIfDirty() {
 
     overallTimerGuard.stop();
 
-    if (log::getTracebackLevel() == log::level::debug) {
+    if (true || log::getTracebackLevel() == log::level::debug) {
         log::debug(R"(update perf:
     model update = %.0f us
     state update = %.0f us

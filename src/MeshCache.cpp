@@ -18,7 +18,7 @@ struct osc::MeshCache::Impl final {
     std::shared_ptr<Mesh> cone = std::make_shared<Mesh>(GenUntexturedSimbodyCone(12));
     std::shared_ptr<Mesh> floor = []() {
         std::shared_ptr<Mesh> rv = std::make_shared<Mesh>(GenTexturedQuad());
-        rv->scaleTexCoords(200.0f);
+        rv->ScaleTexCoords(200.0f);
         return rv;
     }();
     std::shared_ptr<Mesh> grid100x100 = std::make_shared<Mesh>(GenNbyNGrid(100));

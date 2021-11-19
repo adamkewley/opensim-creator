@@ -30,7 +30,7 @@ namespace osc {
             int id = getShaderId<TShader>();
 
             auto guard = std::lock_guard{m_ShaderStorageMutex};
-            if (id >= m_ShaderStorage.size()) {
+            if (id >= static_cast<int>(m_ShaderStorage.size())) {
                 m_ShaderStorage.resize(id+1);
                 m_ShaderStorage[id] = std::make_unique<TShader>();
             }

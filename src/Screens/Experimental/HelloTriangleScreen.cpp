@@ -33,22 +33,24 @@ static constexpr char const g_FragmentShader[] = R"(
 
 namespace {
     struct BasicShader final {
-        gl::Program program = gl::CreateProgramFrom(
-            gl::CompileFromSource<gl::VertexShader>(g_VertexShader),
-            gl::CompileFromSource<gl::FragmentShader>(g_FragmentShader));
+        gl::Program program{
+            gl::Shader{GL_VERTEX_SHADER, g_VertexShader},
+            gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader}
+        };
 
-        gl::AttributeVec3 aPos = gl::GetAttribLocation(program, "aPos");
-        gl::UniformVec4 uColor = gl::GetUniformLocation(program, "uColor");
+        gl::Attribute<gl::ShaderType::Vec3> aPos{program, "aPos"};
+        gl::Uniform<gl::ShaderType::Vec4> uColor{program, "uColor"};
     };
 }
 
-static gl::VertexArray createVAO(BasicShader& shader, gl::ArrayBuffer<glm::vec3> const& points) {
-    gl::VertexArray rv;
+static gl::VertexArray createVAO(BasicShader& shader, gl::Buffer const& points) {
+    gl::BufferElementDescription posDescription{shader.aPos, GL_FLOAT, false, 0};
 
+    gl::VertexArray rv;
     gl::BindVertexArray(rv);
-    gl::BindBuffer(points);
-    gl::VertexAttribPointer(shader.aPos, false, sizeof(glm::vec3), 0);
-    gl::EnableVertexAttribArray(shader.aPos);
+    gl::BindBuffer(GL_ARRAY_BUFFER, points);
+    gl::VertexAttribPointer(posDescription, sizeof(glm::vec3));
+    gl::EnableVertexAttribArray(shader.aPos.get(), shader.aPos.type());
     gl::BindVertexArray();
 
     return rv;

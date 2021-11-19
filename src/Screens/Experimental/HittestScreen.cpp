@@ -111,7 +111,7 @@ struct osc::HittestScreen::Impl final {
     // sphere datas
     std::vector<glm::vec3> sphereVerts = GenUntexturedUVSphere(12, 12).verts;
     AABB sphereAABBs = AABBFromVerts(sphereVerts.data(), sphereVerts.size());
-    Sphere sphereBoundingSphere = BoundingSphereFromVerts(sphereVerts.data(), sphereVerts.size());
+    Sphere sphereBoundingSphere = SphereFromVerts(sphereVerts.data(), sphereVerts.size());
     gl::ArrayBuffer<glm::vec3> sphereVBO{sphereVerts};
     gl::VertexArray sphereVAO = makeVAO(shader, sphereVBO);
 
@@ -215,7 +215,7 @@ void osc::HittestScreen::tick(float) {
 
     // compute hits
 
-    Line cameraRay;
+    Ray cameraRay;
     cameraRay.origin = camera.pos;
     cameraRay.dir = camera.getFront();
 
@@ -247,7 +247,7 @@ void osc::HittestScreen::draw() {
     Impl& impl = *m_Impl;
     auto& shader = impl.shader;
 
-    Line cameraRay;
+    Ray cameraRay;
     cameraRay.dir = impl.camera.getFront();
     cameraRay.origin = impl.camera.pos;
 

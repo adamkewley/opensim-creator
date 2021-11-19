@@ -3,7 +3,7 @@
 // stolen from raylib: https://github.com/raysan5/raylib/blob/master/src/raylib.h
 //
 // the benefit of all shaders using the same locations is that the same VAO can be
-// recycled
+// recycled between multiple shaders
 
 namespace osc {
     enum ShaderLocationIndex {

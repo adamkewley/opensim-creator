@@ -1,6 +1,4 @@
-#include "src/Screens/Experimental/MeshesToModelWizardScreen.hpp"
-#include "src/Screens/LoadingScreen.hpp"
-#include "src/Screens/SplashScreen.hpp"
+#include "src/Screens/Experimental/HelloTriangleScreen.hpp"
 #include "src/App.hpp"
 #include "src/Log.hpp"
 #include "src/MainEditorState.hpp"
@@ -53,6 +51,9 @@ int main(int argc, char** argv) {
     try {
         // init main app (window, OpenGL, etc.)
         App app;
+        app.show<HelloTriangleScreen>();
+
+        /*
 
         if (argc <= 0) {
             app.show<SplashScreen>();
@@ -60,6 +61,7 @@ int main(int argc, char** argv) {
             auto mes = std::make_shared<MainEditorState>();
             app.show<LoadingScreen>(mes, argv[0]);
         }
+        */
     } catch (std::exception const& ex) {
         log::error("osc: encountered fatal exception: %s", ex.what());
         log::error("osc: terminating due to fatal exception");

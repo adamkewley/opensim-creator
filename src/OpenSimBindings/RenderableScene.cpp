@@ -21,7 +21,7 @@ static bool sortByOpacityThenMeshID(SceneElement const& a, SceneElement const& b
     if (a.color.a != b.color.a) {
         return a.color.a > b.color.a;  // alpha descending, so non-opaque stuff is drawn last
     } else {
-        return a.mesh.get() < b.mesh.get();
+        return a.mesh < b.mesh;
     }
 }
 
@@ -60,8 +60,8 @@ static void getSceneElements(OpenSim::Model const& m,
             glm::vec3 p2Ground = b2LocalToGround * glm::vec4{p2Local, 1.0f};
             glm::vec3 p1Cylinder = {0.0f, -1.0f, 0.0f};
             glm::vec3 p2Cylinder = {0.0f, +1.0f, 0.0f};
-            Segment springLine{p1Ground, p2Ground};
-            Segment cylinderLine{p1Cylinder, p2Cylinder};
+            Line springLine{p1Ground, p2Ground};
+            Line cylinderLine{p1Cylinder, p2Cylinder};
 
             glm::mat4 cylinderXform = SegmentToSegmentXform(cylinderLine, springLine);
             glm::mat4 scaler = glm::scale(glm::mat4{1.0f}, {0.005f * fixupScaleFactor, 1.0f, 0.005f * fixupScaleFactor});
@@ -71,7 +71,7 @@ static void getSceneElements(OpenSim::Model const& m,
             se.modelMtx = cylinderXform * scaler;
             se.normalMtx = NormalMatrix(se.modelMtx);
             se.color = {0.7f, 0.7f, 0.7f, 1.0f};
-            se.worldspaceAABB = AABBApplyXform(se.mesh->getAABB(), se.modelMtx);
+            se.worldspaceAABB = AABBApplyXform(se.mesh->GetAABB(), se.modelMtx);
 
             onEmit(se);
         }

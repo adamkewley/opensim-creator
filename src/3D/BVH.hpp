@@ -47,12 +47,12 @@ namespace osc {
     // assumes prim.id in the BVH is an offset into the (supplied) triangle verts
     //
     // returns true if at least one collision was found and appended to the output
-    bool BVH_GetRayTriangleCollisions(BVH const&, glm::vec3 const*, size_t n, Line const&, std::vector<BVHCollision>* appendTo);
+    bool BVH_GetRayTriangleCollisions(BVH const&, glm::vec3 const*, size_t n, Ray const&, std::vector<BVHCollision>* appendTo);
 
     // populates `out` with the closest collision along the ray - if there is a collision
     //
     // returns `true` if there was a collision; otherwise, `false` and `out` if left untouched
-    bool BVH_GetClosestRayTriangleCollision(BVH const&, glm::vec3 const*, size_t nverts, Line const&, BVHCollision* out);
+    bool BVH_GetClosestRayTriangleCollision(BVH const&, glm::vec3 const*, size_t nverts, Ray const&, BVHCollision* out);
 
 
     // AABB BVHes
@@ -67,5 +67,5 @@ namespace osc {
     // no assumptions about prim.id required here - it's using the BVH's AABBs
     //
     // returns true if at least one collision was found and appended to the output
-    bool BVH_GetRayAABBCollisions(BVH const&, Line const&, std::vector<BVHCollision>* appendTo);
+    bool BVH_GetRayAABBCollisions(BVH const&, Ray const&, std::vector<BVHCollision>* appendTo);
 }

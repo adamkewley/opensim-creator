@@ -64,13 +64,14 @@ static char const g_FragmentShader[] = R"(
 )";
 
 osc::InstancedGouraudColorShader::InstancedGouraudColorShader() :
-    program{gl::CreateProgramFrom(
-        gl::CompileFromSource<gl::VertexShader>(g_VertexShader),
-        gl::CompileFromSource<gl::FragmentShader>(g_FragmentShader))},
-
-    uProjMat{gl::GetUniformLocation(program, "uProjMat")},
-    uViewMat{gl::GetUniformLocation(program, "uViewMat")},
-    uLightDir{gl::GetUniformLocation(program, "uLightDir")},
-    uLightColor{gl::GetUniformLocation(program, "uLightColor")},
-    uViewPos{gl::GetUniformLocation(program, "uViewPos")} {
+    program{
+        gl::Shader{GL_VERTEX_SHADER, g_VertexShader},
+        gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader}
+    },
+    uProjMat{program, "uProjMat"},
+    uViewMat{program, "uViewMat"},
+    uLightDir{program, "uLightDir"},
+    uLightColor{program, "uLightColor"},
+    uViewPos{program, "uViewPos"}
+{
 }

@@ -16,7 +16,7 @@ namespace osc {
     Rect ContentRegionAvailScreenRect();
 
     // draws a texutre as an ImGui::Image, assumes UV coords of (0.0, 1.0); (1.0, 0.0)
-    void DrawTextureAsImGuiImage(gl::Texture2D&, glm::vec2 dims);
+    void DrawTextureAsImGuiImage(gl::Texture&, glm::vec2 dims);
 
     // returns `true` if any scancode in the provided range is currently presed down
     bool IsAnyKeyDown(nonstd::span<int const>);

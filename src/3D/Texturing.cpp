@@ -117,7 +117,7 @@ static void load_cubemap_surface(char const* path, GLenum target) {
 
 // public API
 
-gl::Texture2D osc::genChequeredFloorTexture() {
+gl::Texture osc::GenChequeredFloorTexture() {
     constexpr size_t chequer_width = 32;
     constexpr size_t chequer_height = 32;
     constexpr size_t w = 2 * chequer_width;
@@ -137,21 +137,21 @@ gl::Texture2D osc::genChequeredFloorTexture() {
         }
     }
 
-    gl::Texture2D rv;
+    gl::Texture rv;
     gl::ActiveTexture(GL_TEXTURE0);
-    gl::BindTexture(rv.type, rv.handle());
-    glTexImage2D(rv.type, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
-    glGenerateMipmap(rv.type);
-    gl::TexParameteri(rv.type, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    gl::TexParameteri(rv.type, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    gl::TexParameteri(rv.type, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    gl::TexParameteri(rv.type, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    gl::BindTexture(GL_TEXTURE_2D, rv);
+    gl::TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+    gl::GenerateMipmap(GL_TEXTURE_2D);
+    gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
     return rv;
 }
 
 osc::ImageTexture osc::loadImageAsTexture(char const* path, TexFlag flags) {
-    gl::Texture2D t;
+    gl::Texture t;
 
     if (flags & TexFlag_FlipPixelsVertically) {
         stbi_set_flip_vertically_on_load(true);
@@ -187,14 +187,14 @@ osc::ImageTexture osc::loadImageAsTexture(char const* path, TexFlag flags) {
         throw std::runtime_error{std::move(msg).str()};
     }
 
-    gl::BindTexture(t.type, t.handle());
-    gl::TexImage2D(t.type, 0, internalFormat, img->width, img->height, 0, format, GL_UNSIGNED_BYTE, img->data);
-    glGenerateMipmap(t.type);
+    gl::BindTexture(GL_TEXTURE_2D, t);
+    gl::TexImage2D(GL_TEXTURE_2D, 0, internalFormat, img->width, img->height, 0, format, GL_UNSIGNED_BYTE, img->data);
+    gl::GenerateMipmap(GL_TEXTURE_2D);
 
     return ImageTexture{std::move(t), img->width, img->height, img->channels};
 }
 
-gl::TextureCubemap osc::loadCubemapAsCubemapTexture(
+gl::Texture osc::loadCubemapAsCubemapTexture(
     char const* path_pos_x,
     char const* path_neg_x,
     char const* path_pos_y,
@@ -204,8 +204,8 @@ gl::TextureCubemap osc::loadCubemapAsCubemapTexture(
 
     stbi_set_flip_vertically_on_load(false);
 
-    gl::TextureCubemap rv;
-    gl::BindTexture(rv);
+    gl::Texture rv;
+    gl::BindTexture(GL_TEXTURE_CUBE_MAP, rv);
 
     load_cubemap_surface(path_pos_x, GL_TEXTURE_CUBE_MAP_POSITIVE_X);
     load_cubemap_surface(path_neg_x, GL_TEXTURE_CUBE_MAP_NEGATIVE_X);
@@ -225,11 +225,11 @@ gl::TextureCubemap osc::loadCubemapAsCubemapTexture(
      * by using GL_CLAMP_TO_EDGE OpenGL always returns their edge values
      * whenever we sample between faces.
      */
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    gl::TexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    gl::TexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    gl::TexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gl::TexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    gl::TexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     return rv;
 }

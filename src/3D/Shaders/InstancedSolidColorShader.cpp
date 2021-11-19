@@ -27,10 +27,11 @@ static char const g_FragmentShader[] = R"(
 )";
 
 osc::InstancedSolidColorShader::InstancedSolidColorShader() :
-    program{gl::CreateProgramFrom(
-        gl::CompileFromSource<gl::VertexShader>(g_VertexShader),
-        gl::CompileFromSource<gl::FragmentShader>(g_FragmentShader))},
-    uVP{gl::GetUniformLocation(program, "uVP")},
-    uColor{gl::GetUniformLocation(program, "uColor")}
+    program{
+        gl::Shader{GL_VERTEX_SHADER, g_VertexShader},
+        gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader}
+    },
+    uVP{program, "uVP"},
+    uColor{program, "uColor"}
 {
 }

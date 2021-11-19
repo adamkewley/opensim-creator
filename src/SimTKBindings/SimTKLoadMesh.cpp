@@ -40,16 +40,16 @@ MeshData osc::SimTKLoadMesh(std::filesystem::path const& p) {
         } else if (verts == 3) {
             // triangle
 
-            glm::vec3 vs[] = {
+            Triangle t = {
                 getFaceVertex(mesh, face, 0),
                 getFaceVertex(mesh, face, 1),
                 getFaceVertex(mesh, face, 2),
             };
-            glm::vec3 normal = TriangleNormal(vs);
+            glm::vec3 normal = TriangleNormal(t);
 
-            push(vs[0], normal);
-            push(vs[1], normal);
-            push(vs[2], normal);
+            push(t.p1, normal);
+            push(t.p2, normal);
+            push(t.p3, normal);
 
         } else if (verts == 4) {
             // quad: render as two triangles
@@ -62,8 +62,8 @@ MeshData osc::SimTKLoadMesh(std::filesystem::path const& p) {
             };
 
             glm::vec3 norms[] = {
-                TriangleNormal(vs[0], vs[1], vs[2]),
-                TriangleNormal(vs[2], vs[3], vs[0]),
+                TriangleNormal(Triangle{vs[0], vs[1], vs[2]}),
+                TriangleNormal(Triangle{vs[2], vs[3], vs[0]}),
             };
 
             push(vs[0], norms[0]);
@@ -87,29 +87,29 @@ MeshData osc::SimTKLoadMesh(std::filesystem::path const& p) {
 
             for (int vert = 0; vert < verts - 1; ++vert) {
 
-                glm::vec3 vs[] = {
+                Triangle t = {
                     getFaceVertex(mesh, face, vert),
                     getFaceVertex(mesh, face, vert + 1),
                     center,
                 };
-                glm::vec3 normal = TriangleNormal(vs);
+                glm::vec3 normal = TriangleNormal(t);
 
-                push(vs[0], normal);
-                push(vs[1], normal);
-                push(vs[2], normal);
+                push(t.p1, normal);
+                push(t.p2, normal);
+                push(t.p3, normal);
             }
 
             // complete the polygon loop
-            glm::vec3 vs[] = {
+            Triangle t = {
                 getFaceVertex(mesh, face, verts - 1),
                 getFaceVertex(mesh, face, 0),
                 center,
             };
-            glm::vec3 normal = TriangleNormal(vs);
+            glm::vec3 normal = TriangleNormal(t);
 
-            push(vs[0], normal);
-            push(vs[1], normal);
-            push(vs[2], normal);
+            push(t.p1, normal);
+            push(t.p2, normal);
+            push(t.p3, normal);
         }
     }
 

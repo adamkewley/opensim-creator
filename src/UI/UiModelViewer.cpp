@@ -53,13 +53,13 @@ namespace {
         gl::FrameBuffer sceneFBO;
 
         // rims are single-sampled, single-color, no blending
-        gl::Texture2D rims2DTex;
+        gl::Texture rims2DTex;
         gl::RenderBuffer rims2DDepth24Stencil8RBO;
         gl::FrameBuffer rimsFBO;
 
         // output of the renderer
-        gl::Texture2D outputTex;
-        gl::Texture2D outputDepth24Stencil8Tex;
+        gl::Texture outputTex;
+        gl::Texture outputDepth24Stencil8Tex;
         gl::FrameBuffer outputFbo;
 
         RenderBuffers(glm::ivec2 dims_, int samples_) :
@@ -73,52 +73,52 @@ namespace {
                 gl::BindFramebuffer(GL_FRAMEBUFFER, rv);
                 gl::FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, sceneRBO);
                 gl::FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, sceneDepth24StencilRBO);
-                gl::BindFramebuffer(GL_FRAMEBUFFER, gl::windowFbo);
+                gl::BindWindowFramebuffer(GL_FRAMEBUFFER);
                 return rv;
             }()},
 
             rims2DTex{[this]() {
-                gl::Texture2D rv;
-                gl::BindTexture(rv);
-                gl::TexImage2D(rv.type, 0, GL_RED, dims.x, dims.y, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
-                gl::TexParameteri(rv.type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  // no mipmaps
-                gl::TexParameteri(rv.type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  // no mipmaps
-                gl::TexParameteri(rv.type, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-                gl::TexParameteri(rv.type, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-                gl::TexParameteri(rv.type, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+                gl::Texture rv;
+                gl::BindTexture(GL_TEXTURE_2D, rv);
+                gl::TexImage2D(GL_TEXTURE_2D, 0, GL_RED, dims.x, dims.y, 0, GL_RED, GL_UNSIGNED_BYTE, nullptr);
+                gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  // no mipmaps
+                gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  // no mipmaps
+                gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
                 return rv;
             }()},
             rims2DDepth24Stencil8RBO{makeRenderBuffer(GL_DEPTH24_STENCIL8, dims.x, dims.y)},
             rimsFBO{[this]() {
                 gl::FrameBuffer rv;
                 gl::BindFramebuffer(GL_FRAMEBUFFER, rv);
-                gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, rims2DTex, 0);
+                gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rims2DTex.get(), 0);
                 gl::FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, rims2DDepth24Stencil8RBO);
-                gl::BindFramebuffer(GL_FRAMEBUFFER, gl::windowFbo);
+                gl::BindWindowFramebuffer(GL_FRAMEBUFFER);
                 return rv;
             }()},
 
             outputTex{[this]() {
-               gl::Texture2D rv;
-               gl::BindTexture(rv);
-               gl::TexImage2D(rv.type, 0, GL_RGBA, dims.x, dims.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-               gl::TexParameteri(rv.type, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  // no mipmaps
-               gl::TexParameteri(rv.type, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  // no mipmaps
+               gl::Texture rv;
+               gl::BindTexture(GL_TEXTURE_2D, rv);
+               gl::TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, dims.x, dims.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+               gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  // no mipmaps
+               gl::TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  // no mipmaps
                return rv;
            }()},
            outputDepth24Stencil8Tex{[this]() {
-               gl::Texture2D rv;
-               gl::BindTexture(rv);
+               gl::Texture rv;
+               gl::BindTexture(GL_TEXTURE_2D, rv);
                // https://stackoverflow.com/questions/27535727/opengl-create-a-depth-stencil-texture-for-reading
-               gl::TexImage2D(rv.type, 0, GL_DEPTH24_STENCIL8, dims.x, dims.y, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
+               gl::TexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, dims.x, dims.y, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
                return rv;
            }()},
            outputFbo{[this]() {
                gl::FrameBuffer rv;
                gl::BindFramebuffer(GL_FRAMEBUFFER, rv);
-               gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTex, 0);
-               gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, outputDepth24Stencil8Tex, 0);
-               gl::BindFramebuffer(GL_FRAMEBUFFER, gl::windowFbo);
+               gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTex.get(), 0);
+               gl::FramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, outputDepth24Stencil8Tex.get(), 0);
+               gl::BindWindowFramebuffer(GL_FRAMEBUFFER);
                return rv;
            }()}
         {
@@ -148,7 +148,7 @@ namespace {
 
     static Mesh generateFloorMesh() {
         Mesh m{GenTexturedQuad()};
-        m.scaleTexCoords(200.0f);
+        m.ScaleTexCoords(200.0f);
         return m;
     }
 
@@ -278,7 +278,7 @@ struct osc::UiModelViewer::Impl final {
     // lie at Z==0
     glm::vec3 floorLocation = {0.0f, -0.0001f, 0.0f};
 
-    gl::Texture2D chequerTex = genChequeredFloorTexture();
+    gl::Texture chequerTex = GenChequeredFloorTexture();
 
     std::vector<BVHCollision> sceneHittestResults;
 
@@ -423,22 +423,22 @@ static void populateSceneDrawlist(osc::UiModelViewer::Impl& impl, RenderableScen
 }
 
 static void bindInstanceAttrs(size_t offset) {
-    gl::AttributeMat4x3 mmtxAttr{SHADER_LOC_MATRIX_MODEL};
+    gl::Attribute<glsl::Mat4x3> mmtxAttr{SHADER_LOC_MATRIX_MODEL};
     gl::VertexAttribPointer(mmtxAttr, false, sizeof(SceneGPUInstanceData), sizeof(SceneGPUInstanceData)*offset + offsetof(SceneGPUInstanceData, modelMtx));
     gl::VertexAttribDivisor(mmtxAttr, 1);
     gl::EnableVertexAttribArray(mmtxAttr);
 
-    gl::AttributeMat3 normMtxAttr{SHADER_LOC_MATRIX_NORMAL};
+    gl::Attribute<glsl::Mat3> normMtxAttr{SHADER_LOC_MATRIX_NORMAL};
     gl::VertexAttribPointer(normMtxAttr, false, sizeof(SceneGPUInstanceData), sizeof(SceneGPUInstanceData)*offset + offsetof(SceneGPUInstanceData, normalMtx));
     gl::VertexAttribDivisor(normMtxAttr, 1);
     gl::EnableVertexAttribArray(normMtxAttr);
 
-    gl::AttributeVec4 colorAttr{SHADER_LOC_COLOR_DIFFUSE};
+    gl::Attribute<glsl::Vec4> colorAttr{SHADER_LOC_COLOR_DIFFUSE};
     gl::VertexAttribPointer(colorAttr, false, sizeof(SceneGPUInstanceData), sizeof(SceneGPUInstanceData)*offset + offsetof(SceneGPUInstanceData, rgba));
     gl::VertexAttribDivisor(colorAttr, 1);
     gl::EnableVertexAttribArray(colorAttr);
 
-    gl::AttributeFloat rimAttr{SHADER_LOC_COLOR_RIM};
+    gl::Attribute<glsl::Float> rimAttr{SHADER_LOC_COLOR_RIM};
     gl::VertexAttribPointer(rimAttr, false, sizeof(SceneGPUInstanceData), sizeof(SceneGPUInstanceData)*offset + offsetof(SceneGPUInstanceData, rimIntensity));
     gl::VertexAttribDivisor(rimAttr, 1);
     gl::EnableVertexAttribArray(rimAttr);
@@ -458,7 +458,7 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
     }
 
     // instance data to the GPU
-    gl::ArrayBuffer<SceneGPUInstanceData> instanceBuf{impl.drawlistBuffer};
+    gl::Buffer instanceBuf = gl::CreateBuffer(GL_ARRAY_BUFFER, impl.drawlistBuffer.size(), impl.drawlistBuffer.data(), GL_STATIC_DRAW);
 
     // get scene matrices
     glm::mat4 projMtx = impl.camera.getProjMtx(static_cast<float>(renderTarg.dims.x)/static_cast<float>(renderTarg.dims.y));
@@ -484,11 +484,11 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
 
         auto& instancedShader = App::shader<InstancedGouraudColorShader>();
         gl::UseProgram(instancedShader.program);
-        gl::Uniform(instancedShader.uProjMat, projMtx);
-        gl::Uniform(instancedShader.uViewMat, viewMtx);
-        gl::Uniform(instancedShader.uLightDir, impl.lightDir);
-        gl::Uniform(instancedShader.uLightColor, impl.lightCol);
-        gl::Uniform(instancedShader.uViewPos, viewerPos);
+        gl::SetUniform(instancedShader.uProjMat, projMtx);
+        gl::SetUniform(instancedShader.uViewMat, viewMtx);
+        gl::SetUniform(instancedShader.uLightDir, impl.lightDir);
+        gl::SetUniform(instancedShader.uLightColor, impl.lightCol);
+        gl::SetUniform(instancedShader.uViewPos, viewerPos);
 
         std::vector<SceneGPUInstanceData> const& instances = impl.drawlistBuffer;
         nonstd::span<LabelledSceneElement const> decs = rs.getSceneDecorations();
@@ -501,7 +501,7 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
 
             // batch
             size_t end = pos + 1;
-            while (end < ninstances && decs[instances[end].decorationIdx].mesh.get() == se.mesh.get()) {
+            while (end < ninstances && decs[instances[end].decorationIdx].mesh == se.mesh) {
                 ++end;
             }
 
@@ -514,7 +514,7 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
             }
 
             gl::BindVertexArray(se.mesh->GetVertexArray());
-            gl::BindBuffer(instanceBuf);
+            gl::BindBuffer(GL_ARRAY_BUFFER, instanceBuf);
             bindInstanceAttrs(pos);
             se.mesh->DrawInstanced(end-pos);
             gl::BindVertexArray();
@@ -526,19 +526,20 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
             auto& basicShader = App::shader<GouraudShader>();
 
             gl::UseProgram(basicShader.program);
-            gl::Uniform(basicShader.uProjMat, projMtx);
-            gl::Uniform(basicShader.uViewMat, viewMtx);
+            gl::SetUniform(basicShader.uProjMat, projMtx);
+            gl::SetUniform(basicShader.uViewMat, viewMtx);
             glm::mat4 mtx = generateFloorModelMatrix(impl, rs);
-            gl::Uniform(basicShader.uModelMat, mtx);
-            gl::Uniform(basicShader.uNormalMat, NormalMatrix(mtx));
-            gl::Uniform(basicShader.uLightDir, impl.lightDir);
-            gl::Uniform(basicShader.uLightColor, impl.lightCol);
-            gl::Uniform(basicShader.uViewPos, viewerPos);
-            gl::Uniform(basicShader.uIsTextured, true);
+            gl::SetUniform(basicShader.uModelMat, mtx);
+            gl::SetUniform(basicShader.uNormalMat, NormalMatrix(mtx));
+            gl::SetUniform(basicShader.uLightDir, impl.lightDir);
+            gl::SetUniform(basicShader.uLightColor, impl.lightCol);
+            gl::SetUniform(basicShader.uViewPos, viewerPos);
+            gl::SetUniform(basicShader.uIsTextured, true);
+            gl::SetUniform(basicShader.uDiffuseColor, {1.0f, 1.0f, 1.0f, 1.0f});
             gl::ActiveTexture(GL_TEXTURE0);
-            gl::BindTexture(impl.chequerTex);
-            gl::Uniform(basicShader.uSampler0, gl::textureIndex<GL_TEXTURE0>());
-            auto floor = App::meshes().getFloorMesh();
+            gl::BindTexture(GL_TEXTURE_2D, impl.chequerTex);
+            gl::SetUniform(basicShader.uSampler0, 0);
+            std::shared_ptr<Mesh> floor = App::meshes().getFloorMesh();
             gl::BindVertexArray(floor->GetVertexArray());
             floor->Draw();
             gl::BindVertexArray();
@@ -555,8 +556,8 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
         auto& normalShader = App::shader<NormalsShader>();
         gl::DrawBuffer(GL_COLOR_ATTACHMENT0);
         gl::UseProgram(normalShader.program);
-        gl::Uniform(normalShader.uProjMat, projMtx);
-        gl::Uniform(normalShader.uViewMat, viewMtx);
+        gl::SetUniform(normalShader.uProjMat, projMtx);
+        gl::SetUniform(normalShader.uViewMat, viewMtx);
 
         std::vector<SceneGPUInstanceData> const& instances = impl.drawlistBuffer;
         nonstd::span<LabelledSceneElement const> decs = rs.getSceneDecorations();
@@ -564,8 +565,8 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
         for (SceneGPUInstanceData const& inst : instances) {
             LabelledSceneElement const& se = decs[inst.decorationIdx];
 
-            gl::Uniform(normalShader.uModelMat, inst.modelMtx);
-            gl::Uniform(normalShader.uNormalMat, inst.normalMtx);
+            gl::SetUniform(normalShader.uModelMat, inst.modelMtx);
+            gl::SetUniform(normalShader.uNormalMat, inst.normalMtx);
             gl::BindVertexArray(se.mesh->GetVertexArray());
             se.mesh->Draw();
         }
@@ -589,7 +590,7 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
 
         auto& iscs = App::shader<InstancedSolidColorShader>();
         gl::UseProgram(iscs.program);
-        gl::Uniform(iscs.uVP, projMtx * viewMtx);
+        gl::SetUniform(iscs.uVP, projMtx * viewMtx);
 
         std::vector<SceneGPUInstanceData> const& instances = impl.drawlistBuffer;
         nonstd::span<LabelledSceneElement const> decs = rs.getSceneDecorations();
@@ -608,7 +609,7 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
 
             // batch
             size_t end = pos + 1;
-            while (end < ninstances && decs[instances[end].decorationIdx].mesh.get() == se.mesh.get() && instances[end].rimIntensity == inst.rimIntensity) {
+            while (end < ninstances && decs[instances[end].decorationIdx].mesh == se.mesh && instances[end].rimIntensity == inst.rimIntensity) {
                 ++end;
             }
 
@@ -624,9 +625,9 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
                 rimAABB = AABBUnion(rimAABB, decs[instances[i].decorationIdx].worldspaceAABB);
             }
 
-            gl::Uniform(iscs.uColor, {inst.rimIntensity, 0.0f, 0.0f, 1.0f});
+            gl::SetUniform(iscs.uColor, {inst.rimIntensity, 0.0f, 0.0f, 1.0f});
             gl::BindVertexArray(se.mesh->GetVertexArray());
-            gl::BindBuffer(instanceBuf);
+            gl::BindBuffer(GL_ARRAY_BUFFER, instanceBuf);
             bindInstanceAttrs(pos);
             se.mesh->DrawInstanced(end-pos);
             gl::BindVertexArray();
@@ -669,17 +670,17 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
 
             auto& edgeDetectShader = App::shader<EdgeDetectionShader>();
             gl::UseProgram(edgeDetectShader.program);
-            gl::Uniform(edgeDetectShader.uMVP, gl::identity);
+            gl::SetUniform(edgeDetectShader.uMVP, glm::mat4{1.0f});
             gl::ActiveTexture(GL_TEXTURE0);
-            gl::BindTexture(renderTarg.rims2DTex);
-            gl::Uniform(edgeDetectShader.uSampler0, gl::textureIndex<GL_TEXTURE0>());
-            gl::Uniform(edgeDetectShader.uRimRgba, {0.95f, 0.40f, 0.0f, 0.70f});
-            gl::Uniform(edgeDetectShader.uRimThickness, rimThickness);
+            gl::BindTexture(GL_TEXTURE_2D, renderTarg.rims2DTex);
+            gl::SetUniform(edgeDetectShader.uSampler0, 0);
+            gl::SetUniform(edgeDetectShader.uRimRgba, {0.95f, 0.40f, 0.0f, 0.70f});
+            gl::SetUniform(edgeDetectShader.uRimThickness, rimThickness);
             gl::Enable(GL_SCISSOR_TEST);
             glScissor(x, y, w, h);
             gl::Enable(GL_BLEND);
             gl::Disable(GL_DEPTH_TEST);
-            auto quad = App::meshes().getTexturedQuadMesh();
+            std::shared_ptr<Mesh> quad = App::meshes().getTexturedQuadMesh();
             gl::BindVertexArray(quad->GetVertexArray());
             quad->Draw();
             gl::BindVertexArray();
@@ -691,7 +692,7 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
     gl::Enable(GL_BLEND);
     gl::Enable(GL_DEPTH_TEST);
     gl::Disable(GL_SCISSOR_TEST);
-    gl::BindFramebuffer(GL_FRAMEBUFFER, gl::windowFbo);
+    gl::BindWindowFramebuffer(GL_FRAMEBUFFER);
 }
 
 static void blitSceneTexture(osc::UiModelViewer::Impl& impl) {
@@ -704,8 +705,8 @@ static void blitSceneTexture(osc::UiModelViewer::Impl& impl) {
 
     ImGui::Image(texImGuiHandle, imgDims, texcoordUV0, texcoordUV1);
 
-    impl.renderRect.p1 = ImGui::GetItemRectMin();
-    impl.renderRect.p2 = ImGui::GetItemRectMax();
+    impl.renderRect.topLeft = ImGui::GetItemRectMin();
+    impl.renderRect.bottomRight = ImGui::GetItemRectMax();
     impl.renderHovered = ImGui::IsItemHovered();
     impl.renderLeftClicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
     impl.renderRightClicked = ImGui::IsItemClicked(ImGuiMouseButton_Right);
@@ -728,7 +729,7 @@ static std::pair<OpenSim::Component const*, glm::vec3> hittestSceneDecorations(
     glm::vec2 itemDims = ImGui::GetContentRegionAvail();  // how big current window will be
 
     // un-project the mouse position as a ray in worldspace
-    Line cameraRay = impl.camera.unprojectTopLeftPosToWorldRay(mouseItemPos, itemDims);
+    Ray cameraRay = impl.camera.unprojectTopLeftPosToWorldRay(mouseItemPos, itemDims);
 
     // use scene BVH to intersect that ray with the scene
     impl.sceneHittestResults.clear();
@@ -751,9 +752,9 @@ static std::pair<OpenSim::Component const*, glm::vec3> hittestSceneDecorations(
         }
 
         glm::mat4 instanceMmtx = decs[instanceIdx].modelMtx;
-        Line cameraRayModelspace = LineApplyXform(cameraRay, glm::inverse(instanceMmtx));
+        Ray cameraRayModelspace = RayApplyXform(cameraRay, glm::inverse(instanceMmtx));
 
-        auto maybeCollision = decs[instanceIdx].mesh->getClosestRayTriangleCollisionModelspace(cameraRayModelspace);
+        auto maybeCollision = decs[instanceIdx].mesh->GetClosestRayTriangleCollisionModelspace(cameraRayModelspace);
 
         if (maybeCollision && maybeCollision.distance < closestDistance) {
             closestIdx = instanceIdx;
@@ -774,11 +775,11 @@ static void drawXZGrid(osc::UiModelViewer::Impl& impl) {
     auto& shader = App::shader<SolidColorShader>();
 
     gl::UseProgram(shader.program);
-    gl::Uniform(shader.uModel, glm::scale(glm::rotate(glm::mat4{1.0f}, fpi2, {1.0f, 0.0f, 0.0f}), {5.0f, 5.0f, 1.0f}));
-    gl::Uniform(shader.uView, impl.camera.getViewMtx());
-    gl::Uniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
-    gl::Uniform(shader.uColor, {0.7f, 0.7f, 0.7f, 0.15f});
-    auto grid = App::meshes().get100x100GridMesh();
+    gl::SetUniform(shader.uModel, glm::scale(glm::rotate(glm::mat4{1.0f}, fpi2, {1.0f, 0.0f, 0.0f}), {5.0f, 5.0f, 1.0f}));
+    gl::SetUniform(shader.uView, impl.camera.getViewMtx());
+    gl::SetUniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
+    gl::SetUniform(shader.uColor, {0.7f, 0.7f, 0.7f, 0.15f});
+    std::shared_ptr<Mesh> grid = App::meshes().get100x100GridMesh();
     gl::BindVertexArray(grid->GetVertexArray());
     grid->Draw();
     gl::BindVertexArray();
@@ -788,11 +789,11 @@ static void drawXYGrid(osc::UiModelViewer::Impl& impl) {
     auto& shader = App::shader<SolidColorShader>();
 
     gl::UseProgram(shader.program);
-    gl::Uniform(shader.uModel, glm::scale(glm::mat4{1.0f}, {5.0f, 5.0f, 1.0f}));
-    gl::Uniform(shader.uColor, {0.7f, 0.7f, 0.7f, 0.15f});
-    gl::Uniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
-    gl::Uniform(shader.uView, impl.camera.getViewMtx());
-    auto grid = App::meshes().get100x100GridMesh();
+    gl::SetUniform(shader.uModel, glm::scale(glm::mat4{1.0f}, {5.0f, 5.0f, 1.0f}));
+    gl::SetUniform(shader.uColor, {0.7f, 0.7f, 0.7f, 0.15f});
+    gl::SetUniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
+    gl::SetUniform(shader.uView, impl.camera.getViewMtx());
+    std::shared_ptr<Mesh> grid = App::meshes().get100x100GridMesh();
     gl::BindVertexArray(grid->GetVertexArray());
     grid->Draw();
     gl::BindVertexArray();
@@ -802,11 +803,11 @@ static void drawYZGrid(osc::UiModelViewer::Impl& impl) {
     auto& shader = App::shader<SolidColorShader>();
 
     gl::UseProgram(shader.program);
-    gl::Uniform(shader.uModel, glm::scale(glm::rotate(glm::mat4{1.0f}, fpi2, {0.0f, 1.0f, 0.0f}), {5.0f, 5.0f, 1.0f}));
-    gl::Uniform(shader.uColor, {0.7f, 0.7f, 0.7f, 0.15f});
-    gl::Uniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
-    gl::Uniform(shader.uView, impl.camera.getViewMtx());
-    auto grid = App::meshes().get100x100GridMesh();
+    gl::SetUniform(shader.uModel, glm::scale(glm::rotate(glm::mat4{1.0f}, fpi2, {0.0f, 1.0f, 0.0f}), {5.0f, 5.0f, 1.0f}));
+    gl::SetUniform(shader.uColor, {0.7f, 0.7f, 0.7f, 0.15f});
+    gl::SetUniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
+    gl::SetUniform(shader.uView, impl.camera.getViewMtx());
+    std::shared_ptr<Mesh> grid = App::meshes().get100x100GridMesh();
     gl::BindVertexArray(grid->GetVertexArray());
     grid->Draw();
     gl::BindVertexArray();
@@ -817,20 +818,20 @@ static void drawFloorAxesLines(osc::UiModelViewer::Impl& impl) {
 
     // common stuff
     gl::UseProgram(shader.program);
-    gl::Uniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
-    gl::Uniform(shader.uView, impl.camera.getViewMtx());
+    gl::SetUniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
+    gl::SetUniform(shader.uView, impl.camera.getViewMtx());
 
-    auto yline = App::meshes().getYLineMesh();
+    std::shared_ptr<Mesh> yline = App::meshes().getYLineMesh();
     gl::BindVertexArray(yline->GetVertexArray());
 
     // X
-    gl::Uniform(shader.uModel, glm::rotate(glm::mat4{1.0f}, fpi2, {0.0f, 0.0f, 1.0f}));
-    gl::Uniform(shader.uColor, {1.0f, 0.0f, 0.0f, 1.0f});
+    gl::SetUniform(shader.uModel, glm::rotate(glm::mat4{1.0f}, fpi2, {0.0f, 0.0f, 1.0f}));
+    gl::SetUniform(shader.uColor, {1.0f, 0.0f, 0.0f, 1.0f});
     yline->Draw();
 
     // Z
-    gl::Uniform(shader.uModel, glm::rotate(glm::mat4{1.0f}, fpi2, {1.0f, 0.0f, 0.0f}));
-    gl::Uniform(shader.uColor, {0.0f, 0.0f, 1.0f, 1.0f});
+    gl::SetUniform(shader.uModel, glm::rotate(glm::mat4{1.0f}, fpi2, {1.0f, 0.0f, 0.0f}));
+    gl::SetUniform(shader.uColor, {0.0f, 0.0f, 1.0f, 1.0f});
     yline->Draw();
 
     gl::BindVertexArray();
@@ -841,11 +842,11 @@ static void drawAABBs(osc::UiModelViewer::Impl& impl, RenderableScene const& rs)
 
     // common stuff
     gl::UseProgram(shader.program);
-    gl::Uniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
-    gl::Uniform(shader.uView, impl.camera.getViewMtx());
-    gl::Uniform(shader.uColor, {0.0f, 0.0f, 0.0f, 1.0f});
+    gl::SetUniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
+    gl::SetUniform(shader.uView, impl.camera.getViewMtx());
+    gl::SetUniform(shader.uColor, {0.0f, 0.0f, 0.0f, 1.0f});
 
-    auto cube = App::meshes().getCubeWireMesh();
+    std::shared_ptr<Mesh> cube = App::meshes().getCubeWireMesh();
     gl::BindVertexArray(cube->GetVertexArray());
 
     for (auto const& se : rs.getSceneDecorations()) {
@@ -856,7 +857,7 @@ static void drawAABBs(osc::UiModelViewer::Impl& impl, RenderableScene const& rs)
         glm::mat4 mover = glm::translate(glm::mat4{1.0f}, center);
         glm::mat4 mmtx = mover * scaler;
 
-        gl::Uniform(shader.uModel, mmtx);
+        gl::SetUniform(shader.uModel, mmtx);
         cube->Draw();
     }
 
@@ -864,7 +865,7 @@ static void drawAABBs(osc::UiModelViewer::Impl& impl, RenderableScene const& rs)
 }
 
 // assumes `pos` is in-bounds
-static void drawBVHRecursive(Mesh& cube, gl::UniformMat4& mtxUniform, BVH const& bvh, int pos) {
+static void drawBVHRecursive(Mesh& cube, gl::Uniform<glsl::Mat4>& mtxUniform, BVH const& bvh, int pos) {
     BVHNode const& n = bvh.nodes[pos];
 
     glm::vec3 halfWidths = AABBDims(n.bounds) / 2.0f;
@@ -873,7 +874,7 @@ static void drawBVHRecursive(Mesh& cube, gl::UniformMat4& mtxUniform, BVH const&
     glm::mat4 scaler = glm::scale(glm::mat4{1.0f}, halfWidths);
     glm::mat4 mover = glm::translate(glm::mat4{1.0f}, center);
     glm::mat4 mmtx = mover * scaler;
-    gl::Uniform(mtxUniform, mmtx);
+    gl::SetUniform(mtxUniform, mmtx);
     cube.Draw();
 
     if (n.nlhs >= 0) {  // if it's an internal node
@@ -893,11 +894,11 @@ static void drawBVH(osc::UiModelViewer::Impl& impl, RenderableScene const& rs) {
 
     // common stuff
     gl::UseProgram(shader.program);
-    gl::Uniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
-    gl::Uniform(shader.uView, impl.camera.getViewMtx());
-    gl::Uniform(shader.uColor, {0.0f, 0.0f, 0.0f, 1.0f});
+    gl::SetUniform(shader.uProjection, impl.camera.getProjMtx(RectAspectRatio(impl.renderRect)));
+    gl::SetUniform(shader.uView, impl.camera.getViewMtx());
+    gl::SetUniform(shader.uColor, {0.0f, 0.0f, 0.0f, 1.0f});
 
-    auto cube = App::meshes().getCubeWireMesh();
+    std::shared_ptr<Mesh> cube = App::meshes().getCubeWireMesh();
     gl::BindVertexArray(cube->GetVertexArray());
     drawBVHRecursive(*cube, shader.uModel, bvh, 0);
     gl::BindVertexArray();
@@ -935,7 +936,7 @@ static void drawOverlays(osc::UiModelViewer::Impl& impl, RenderableScene const& 
         drawBVH(impl, rs);
     }
 
-    gl::BindFramebuffer(GL_FRAMEBUFFER, gl::windowFbo);
+    gl::BindWindowFramebuffer(GL_FRAMEBUFFER);
 }
 
 static void drawOptionsMenu(osc::UiModelViewer::Impl& impl) {
