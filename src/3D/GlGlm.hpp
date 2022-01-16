@@ -14,7 +14,7 @@
 // gl_glm: extensions for using glm types in OpenGL
 namespace gl {
 
-    inline void UniformMatrix3fv(Uniform<ShaderType::Mat3>u, glm::mat3 const& mat) noexcept
+    inline void UniformMatrix3fv(Uniform<ShaderType::Mat3>& u, glm::mat3 const& mat) noexcept
     {
         gl::UniformMatrix3fv(u.geti(), 1, false, glm::value_ptr(mat));
     }

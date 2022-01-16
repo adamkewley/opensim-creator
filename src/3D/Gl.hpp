@@ -271,6 +271,32 @@ namespace gl {
         VertexAttribPointer(attr.get(), size, type, normalized, stride, offset);
     }
 
+    // high-level description of a attribute-buffer binding
+    class BufferBindingDescription final {
+    public:
+        BufferBindingDescription(GLint attributeLocation,
+                                 gl::ShaderType shaderType,
+                                 GLenum bufferDataFormat,
+                                 bool isNormalized,
+                                 size_t offset);
+
+        GLint getAttributeLocation() const { return m_AttributeLocation; }
+        gl::ShaderType getShaderType() const { return m_ShaderType; }
+        GLenum getBufferDataFormat() const { return m_BufferDataFormat; }
+        bool isNormalized() const { return m_IsNormalized; }
+        size_t getOffset() const { return m_Offset; }
+
+    private:
+        GLint m_AttributeLocation;
+        gl::ShaderType m_ShaderType;
+        GLenum m_BufferDataFormat;
+        bool m_IsNormalized;
+        size_t m_Offset;
+    };
+
+    // VertexAttribPointer that takes a high-level description - handy for annoying bindings, like matrices
+    void VertexAttribPointer(BufferBindingDescription const&, size_t stride);
+
     void EnableVertexAttribArray(GLuint index, ShaderType type);  // enables multiple slots, if the shader type requires it
 
     template<ShaderType ShaderTypeV>
@@ -288,7 +314,7 @@ namespace gl {
     }
 
     // type-safe lifetime wrapper over `GenBuffers`, `DeleteBuffers`
-    class Buffer final {
+    class Buffer {
     public:
         static constexpr GLuint EmptyHandle() { return -1; }
 
@@ -308,7 +334,81 @@ namespace gl {
 
     std::ostream& operator<<(std::ostream&, Buffer const&);
     void BindBuffer(GLenum target, Buffer const&);
-    Buffer CreateBuffer(GLenum target, GLsizeiptr size, const void* data, GLenum usage);
+
+    // effectively, make it, bind it, uplaod data
+    Buffer CreateBuffer(GLenum target,  GLenum usage, const void* data, GLsizeiptr size);
+
+    template<typename Container>
+    Buffer CreateBuffer(GLenum target, GLenum usage, Container const& c)
+    {
+        using V = typename Container::value_type;
+
+        void const* ptr = c.data();
+        GLsizeiptr byteSize = static_cast<GLsizeiptr>(c.size() * sizeof(V));
+
+        return CreateBuffer(target, usage, ptr, byteSize);
+    }
+
+    template<typename T, size_t N>
+    Buffer CreateBuffer(GLenum target, GLenum usage, T const (&arr)[N])
+    {
+        GLsizeiptr byteSize = static_cast<GLsizeiptr>(N * sizeof(T));
+        return CreateBuffer(target, usage, arr, byteSize);
+    }
+
+    // helper class that effectively holds a type-erased raw buffer + extra information
+    class SizedBuffer final : public Buffer {
+    public:
+        SizedBuffer(Buffer, int byteSize, int structSize);
+
+        GLuint get() const { return m_Buffer.get(); }
+        GLuint release() { return m_Buffer.release(); }
+        int numBytes() const noexcept { return m_ByteSize; }
+        int numEls() const noexcept { return m_ByteSize/m_StructSize; }
+
+        void assign(GLenum target, GLenum usage, void const* ptr, int byteSize, int structSize);
+
+        template<typename Container>
+        void assign(GLenum target, GLenum usage, Container const& c)
+        {
+            int structSize = static_cast<int>(sizeof(typename Container::value_type));
+            GLsizeiptr byteSize = static_cast<GLsizeiptr>(c.size() * structSize);
+            assign(target, usage, c.data(), byteSize, structSize);
+        }
+
+        template<typename T, size_t N>
+        void assign(GLenum target, GLenum usage, T const (&arr)[N])
+        {
+            int structSize = static_cast<int>(sizeof(T));
+            GLsizeiptr byteSize = static_cast<GLsizeiptr>(N * structSize);
+            assign(target, usage, arr, byteSize, structSize);
+        }
+
+    private:
+        Buffer m_Buffer;
+        int m_ByteSize;
+        int m_StructSize;
+    };
+
+    std::ostream& operator<<(std::ostream&, SizedBuffer const&);
+
+    template<typename Container>
+    SizedBuffer CreateSizedBuffer(GLenum target, GLenum usage, Container const& c)
+    {
+        int elSize = static_cast<int>(sizeof(typename Container::value_type));
+        int nEls = static_cast<int>(c.size());
+        int nBytes = nEls * elSize;
+        return SizedBuffer{CreateBuffer(target, usage, c), nBytes, elSize};
+    }
+
+    template<typename T, size_t N>
+    SizedBuffer CreateSizedBuffer(GLenum target, GLenum usage, T const (&arr)[N])
+    {
+        int elSize = static_cast<int>(sizeof(T));
+        int nEls = static_cast<int>(N);
+        int nBytes = nEls * elSize;
+        return SizedBuffer{CreateBuffer(target, usage, arr), nBytes, elSize};
+    }
 
     // type-safe lifetime wrapper over GenVertexArrays, DeleteVertexArrays
     class VertexArray final {

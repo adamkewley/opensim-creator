@@ -71,7 +71,7 @@ void gl::GetProgramiv(GLuint program, GLenum pname, GLint* params)
     glGetProgramiv(program, pname, params);
 }
 
-void GetProgramInfoLog(GLuint program, GLsizei maxLength, GLsizei* length, GLchar* infoLog)
+void gl::GetProgramInfoLog(GLuint program, GLsizei maxLength, GLsizei* length, GLchar* infoLog)
 {
     glGetProgramInfoLog(program, maxLength, length, infoLog);
 }
@@ -398,6 +398,11 @@ void gl::FramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget
 void gl::GenRenderbuffers(GLsizei n, GLuint* renderbuffers)
 {
     glGenRenderbuffers(n, renderbuffers);
+}
+
+void gl::BindRenderbuffer(GLenum target, GLuint renderbuffer)
+{
+    glBindRenderbuffer(target, renderbuffer);
 }
 
 void gl::DeleteRenderbuffers(GLsizei n, GLuint* renderbuffers)
@@ -871,6 +876,35 @@ size_t gl::TypeSize(GLenum type)
     }
 }
 
+gl::BufferBindingDescription::BufferBindingDescription(
+        GLint attributeLocation,
+        gl::ShaderType shaderType,
+        GLenum bufferDataFormat,
+        bool isNormalized,
+        size_t offset) :
+    m_AttributeLocation{std::move(attributeLocation)},
+    m_ShaderType{std::move(shaderType)},
+    m_BufferDataFormat{std::move(bufferDataFormat)},
+    m_IsNormalized{std::move(isNormalized)},
+    m_Offset{std::move(offset)}
+{
+}
+
+void gl::VertexAttribPointer(BufferBindingDescription const& d, size_t stride)
+{
+    int locs = gl::GetNumShaderLocationsTakenBy(d.getShaderType());
+    int elsPerLoc = gl::GetNumElementsPerLocation(d.getShaderType());
+    size_t typeSize = gl::TypeSize(d.getBufferDataFormat());
+    size_t sizePerLoc = elsPerLoc*typeSize;
+
+    for (int i = 0; i < locs; ++i)
+    {
+        int loc = d.getAttributeLocation() + i;
+        size_t offset = d.getOffset() + i*sizePerLoc;
+        gl::VertexAttribPointer(loc, elsPerLoc, d.getBufferDataFormat(), d.isNormalized(), static_cast<GLsizei>(stride), offset);
+    }
+}
+
 void gl::EnableVertexAttribArray(GLuint index, ShaderType type)
 {
     int numShaderSlots = GetNumShaderLocationsTakenBy(type);
@@ -928,12 +962,36 @@ void gl::BindBuffer(GLenum target, Buffer const& handle)
     BindBuffer(target, handle.get());
 }
 
-gl::Buffer gl::CreateBuffer(GLenum target, GLsizeiptr size, const void* data, GLenum usage)
+gl::Buffer gl::CreateBuffer(GLenum target, GLenum usage, const void* data, GLsizeiptr size)
 {
     Buffer rv;
     BindBuffer(target, rv);
     BufferData(target, size, data, usage);
     return rv;
+}
+
+gl::SizedBuffer::SizedBuffer(Buffer b, int byteSize, int structSize) :
+    Buffer{std::move(b)},
+    m_ByteSize{std::move(byteSize)},
+    m_StructSize{std::move(structSize)}
+{
+}
+
+void gl::SizedBuffer::assign(
+        GLenum target,
+        GLenum usage,
+        void const* ptr,
+        int byteSize,
+        int structSize)
+{
+    BufferData(target, byteSize, ptr, usage);
+    m_ByteSize = static_cast<int>(byteSize);
+    m_StructSize = structSize;
+}
+
+std::ostream& gl::operator<<(std::ostream& o, SizedBuffer const& sb)
+{
+    return o << "SizedBuffer(handle = " << sb.get() << ", bytes = " << sb.numBytes() << ", nels = " << sb.numEls() << ")";
 }
 
 gl::VertexArray::VertexArray()

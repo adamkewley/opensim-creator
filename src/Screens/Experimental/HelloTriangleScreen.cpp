@@ -15,7 +15,8 @@ static constexpr char const g_VertexShader[] = R"(
 
     in vec3 aPos;
 
-    void main() {
+    void main()
+    {
         gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
     }
 )";
@@ -26,7 +27,8 @@ static constexpr char const g_FragmentShader[] = R"(
     out vec4 FragColor;
     uniform vec4 uColor;
 
-    void main() {
+    void main()
+    {
         FragColor = uColor;
     }
 )";
@@ -43,29 +45,37 @@ namespace {
     };
 }
 
-static gl::VertexArray createVAO(BasicShader& shader, gl::Buffer const& points) {
-    gl::BufferElementDescription posDescription{shader.aPos, GL_FLOAT, false, 0};
+static gl::VertexArray CreateVAO(BasicShader& shader, gl::Buffer const& points)
+{
+    gl::BufferBindingDescription description
+    {
+        shader.aPos.geti(),
+        gl::ShaderType::Vec3,
+        GL_FLOAT,
+        false,
+        0
+    };
 
     gl::VertexArray rv;
     gl::BindVertexArray(rv);
     gl::BindBuffer(GL_ARRAY_BUFFER, points);
-    gl::VertexAttribPointer(posDescription, sizeof(glm::vec3));
-    gl::EnableVertexAttribArray(shader.aPos.get(), shader.aPos.type());
+    VertexAttribPointer(description, sizeof(glm::vec3));
+    gl::EnableVertexAttribArray(shader.aPos.get(), shader.aPos.getType());
     gl::BindVertexArray();
 
     return rv;
 }
 
+static glm::vec3 g_TriangleData[] = {
+    {-1.0f, -1.0f, 0.0f},
+    {+1.0f, -1.0f, 0.0f},
+    {+0.0f, +1.0f, 0.0f}
+};
+
 struct osc::HelloTriangleScreen::Impl final {
     BasicShader shader;
-
-    gl::ArrayBuffer<glm::vec3> points = {
-        {-1.0f, -1.0f, 0.0f},
-        {+1.0f, -1.0f, 0.0f},
-        {+0.0f, +1.0f, 0.0f},
-    };
-
-    gl::VertexArray vao = createVAO(shader, points);
+    gl::SizedBuffer points = gl::CreateSizedBuffer(GL_ARRAY_BUFFER, GL_STATIC_DRAW, g_TriangleData);
+    gl::VertexArray vao = CreateVAO(shader, points);
 
     float fadeSpeed = 1.0f;
     glm::vec4 color = {1.0f, 0.0f, 0.0f, 1.0f};
@@ -74,34 +84,39 @@ struct osc::HelloTriangleScreen::Impl final {
 // public API
 
 osc::HelloTriangleScreen::HelloTriangleScreen() :
-    m_Impl{new Impl{}} {
+    m_Impl{new Impl{}}
+{
 }
 
 osc::HelloTriangleScreen::~HelloTriangleScreen() noexcept = default;
 
-void osc::HelloTriangleScreen::onEvent(SDL_Event const& e) {
-    if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
-        App::cur().requestTransition<ExperimentsScreen>();
+void osc::HelloTriangleScreen::onEvent(SDL_Event const& e)
+{
+    if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
+    {
+        //App::cur().requestTransition<ExperimentsScreen>();
     }
 }
 
 void osc::HelloTriangleScreen::tick(float dt) {
 
-    if (m_Impl->color.r < 0.0f || m_Impl->color.r > 1.0f) {
+    if (m_Impl->color.r < 0.0f || m_Impl->color.r > 1.0f)
+    {
         m_Impl->fadeSpeed = -m_Impl->fadeSpeed;
     }
 
     m_Impl->color.r -= dt * m_Impl->fadeSpeed;
 }
 
-void osc::HelloTriangleScreen::draw() {
+void osc::HelloTriangleScreen::draw()
+{
     gl::Viewport(0, 0, App::cur().idims().x, App::cur().idims().y);
     gl::ClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     gl::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     gl::UseProgram(m_Impl->shader.program);
-    gl::Uniform(m_Impl->shader.uColor, m_Impl->color);
+    gl::Uniform4fv(m_Impl->shader.uColor, m_Impl->color);
     gl::BindVertexArray(m_Impl->vao);
-    gl::DrawArrays(GL_TRIANGLES, 0, m_Impl->points.sizei());
+    gl::DrawArrays(GL_TRIANGLES, 0, m_Impl->points.numEls());
     gl::BindVertexArray();
 }

@@ -307,8 +307,8 @@ add_executable(osc
     src/Log.hpp
     src/MeshCache.cpp
     src/MeshCache.hpp
-    src/MainEditorState.cpp
-    src/MainEditorState.hpp
+    #src/MainEditorState.cpp
+    #src/MainEditorState.hpp
     src/RecentFile.hpp
     src/Screen.hpp
     src/Styling.hpp
