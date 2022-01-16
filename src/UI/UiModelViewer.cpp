@@ -529,6 +529,7 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
             gl::SetUniform(basicShader.uProjMat, projMtx);
             gl::SetUniform(basicShader.uViewMat, viewMtx);
             glm::mat4 mtx = generateFloorModelMatrix(impl, rs);
+
             gl::SetUniform(basicShader.uModelMat, mtx);
             gl::SetUniform(basicShader.uNormalMat, NormalMatrix(mtx));
             gl::SetUniform(basicShader.uLightDir, impl.lightDir);
@@ -536,6 +537,7 @@ static void drawSceneTexture(osc::UiModelViewer::Impl& impl, RenderableScene con
             gl::SetUniform(basicShader.uViewPos, viewerPos);
             gl::SetUniform(basicShader.uIsTextured, true);
             gl::SetUniform(basicShader.uDiffuseColor, {1.0f, 1.0f, 1.0f, 1.0f});
+
             gl::ActiveTexture(GL_TEXTURE0);
             gl::BindTexture(GL_TEXTURE_2D, impl.chequerTex);
             gl::SetUniform(basicShader.uSampler0, 0);
@@ -1116,6 +1118,11 @@ static void drawMainMenuContents(osc::UiModelViewer::Impl& impl) {
     }
 }
 
+void osc::UiModelViewer::requestAutoFocus()
+{
+    m_Impl->autoFocusCameraNextFrame = true;
+}
+
 UiModelViewerResponse osc::UiModelViewer::draw(RenderableScene const& rs) {
     Impl& impl = *m_Impl;
 
@@ -1152,6 +1159,9 @@ UiModelViewerResponse osc::UiModelViewer::draw(RenderableScene const& rs) {
             } else {
                 actionResetCamera(impl);
             }
+        }
+        if (ctrlDown && (ImGui::IsKeyPressed(SDL_SCANCODE_8))) {  // solidworks keybind
+            impl.autoFocusCameraNextFrame = true;
         }
         UpdatePolarCameraFromImGuiUserInput(App::cur().dims(), impl.camera);
     }

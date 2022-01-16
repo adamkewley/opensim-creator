@@ -39,14 +39,17 @@ void osc::UpdatePolarCameraFromImGuiUserInput(glm::vec2 viewportDims, osc::Polar
         if (ImGui::IsKeyDown(SDL_SCANCODE_LSHIFT) || ImGui::IsKeyDown(SDL_SCANCODE_RSHIFT)) {
             camera.pan(aspectRatio, delta/viewportDims);
         } else if (ImGui::IsKeyDown(SDL_SCANCODE_LCTRL) || ImGui::IsKeyDown(SDL_SCANCODE_RCTRL)) {
-            camera.radius *= 1.0f + delta.y/viewportDims.y;
+            camera.radius *= 1.0f + 4.0f*delta.y/viewportDims.y;
         } else {
             camera.drag(delta/viewportDims);
         }
 
     } else if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
-        camera.pan(aspectRatio, delta/viewportDims);
-
+        if (ImGui::IsKeyDown(SDL_SCANCODE_LALT) || ImGui::IsKeyDown(SDL_SCANCODE_RALT)) {
+            camera.radius *= 1.0f + 4.0f*delta.y/viewportDims.y;
+        } else {
+            camera.pan(aspectRatio, delta/viewportDims);
+        }
     }
 }
 
@@ -133,7 +136,7 @@ void osc::DrawTooltipIfItemHovered(char const* header, char const* description) 
 
 void osc::DrawAlignmentAxesOverlayInBottomRightOf(glm::mat4 const& viewMtx, Rect const& renderRect)
 {
-    ImDrawList* dd = ImGui::GetForegroundDrawList();
+    ImDrawList* dd = ImGui::GetWindowDrawList();
 
     constexpr float linelen = 35.0f;
     float fontSize = ImGui::GetFontSize();
@@ -154,12 +157,26 @@ void osc::DrawAlignmentAxesOverlayInBottomRightOf(glm::mat4 const& viewMtx, Rect
         glm::vec2 p1 = origin;
         glm::vec2 p2 = origin + linelen*view;
 
-        glm::vec4 color = {0.0f, 0.0f, 0.0f, 1.0f};
-        color[i] = 1.0f;
+        glm::vec4 color = {0.2f, 0.2f, 0.2f, 1.0f};
+        color[i] = 0.7f;
         ImVec4 col{color.x, color.y, color.z, color.a};
         dd->AddLine(p1, p2, ImGui::ColorConvertFloat4ToU32(col), 3.0f);
         dd->AddCircleFilled(p2, circleRadius, ImGui::ColorConvertFloat4ToU32(col));
         glm::vec2 ts = ImGui::CalcTextSize(labels[i]);
         dd->AddText(p2 - ts/2.0f, ImGui::ColorConvertFloat4ToU32({1.0f, 1.0f, 1.0f, 1.0f}), labels[i]);
     }
+}
+
+// draw a help text marker `"(?)"` and display a tooltip when the user hovers over it
+void osc::DrawHelpMarker(char const* header, char const* desc)
+{
+    ImGui::TextDisabled("(?)");
+    DrawTooltipIfItemHovered(header, desc);
+}
+
+// draw a help text marker `"(?)"` and display a tooltip when the user hovers over it
+void osc::DrawHelpMarker(char const* desc)
+{
+    ImGui::TextDisabled("(?)");
+    DrawTooltipIfItemHovered(desc);
 }

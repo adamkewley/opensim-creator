@@ -1,8 +1,12 @@
 #include "src/3D/Model.hpp"
 
+#include "src/3D/Constants.hpp"
+
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include <array>
 #include <iostream>
@@ -11,14 +15,7 @@
 
 using namespace osc;
 
-#ifndef M_PI
-    #define M_PI 3.14159265358979323846
-#endif
-
 namespace {
-    static constexpr float fpi = static_cast<float>(M_PI);
-    static constexpr float fpi2 = fpi/2.0f;
-
     struct UntexturedVert {
         glm::vec3 pos;
         glm::vec3 norm;
@@ -230,7 +227,7 @@ static QuadraticFormulaResult solveQuadratic(float a, float b, float c) {
 }
 
 
-static RayCollision GetRayCollisionSphere(Sphere const& s, Ray const& l) noexcept {
+static RayCollision GetRayCollisionSphere(Sphere const& s, Line const& l) noexcept {
     // see: https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-sphere-intersection
 
     RayCollision rv;
@@ -264,7 +261,7 @@ static RayCollision GetRayCollisionSphere(Sphere const& s, Ray const& l) noexcep
     return rv;
 }
 
-static RayCollision GetRayCollisionSphereAnalytic(Sphere const& s, Ray const& l) noexcept {
+static RayCollision GetRayCollisionSphereAnalytic(Sphere const& s, Line const& l) noexcept {
     // see: https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-sphere-intersection
 
     RayCollision rv;
@@ -320,25 +317,21 @@ static RayCollision GetRayCollisionSphereAnalytic(Sphere const& s, Ray const& l)
 }
 
 
-// VEC STUFF (impl)
+// public API
 
-std::ostream& osc::operator<<(std::ostream& o, glm::vec2 const& v)
-{
+std::ostream& osc::operator<<(std::ostream& o, glm::vec2 const& v) {
     return o << "vec2(" << v.x << ", " << v.y << ')';
 }
 
-std::ostream& osc::operator<<(std::ostream& o, glm::vec3 const& v)
-{
+std::ostream& osc::operator<<(std::ostream& o, glm::vec3 const& v) {
     return o << "vec3(" << v.x << ", " << v.y << ", " << v.z << ')';
 }
 
-std::ostream& osc::operator<<(std::ostream& o, glm::vec4 const& v)
-{
+std::ostream& osc::operator<<(std::ostream& o, glm::vec4 const& v) {
     return o << "vec4(" << v.x << ", " << v.y << ", " << v.z << ", " << v.w << ')';
 }
 
-std::ostream& osc::operator<<(std::ostream& o, glm::mat3 const& m)
-{
+std::ostream& osc::operator<<(std::ostream& o, glm::mat3 const& m) {
     // prints in row-major, because that's how most people debug matrices
     for (int row = 0; row < 3; ++row) {
         char const* delim = "";
@@ -351,8 +344,7 @@ std::ostream& osc::operator<<(std::ostream& o, glm::mat3 const& m)
     return o;
 }
 
-std::ostream& osc::operator<<(std::ostream& o, glm::mat4x3 const& m)
-{
+std::ostream& osc::operator<<(std::ostream& o, glm::mat4x3 const& m) {
     // prints in row-major, because that's how most people debug matrices
     for (int row = 0; row < 3; ++row) {
         char const* delim = "";
@@ -365,8 +357,7 @@ std::ostream& osc::operator<<(std::ostream& o, glm::mat4x3 const& m)
     return o;
 }
 
-std::ostream& osc::operator<<(std::ostream& o, glm::mat4 const& m)
-{
+std::ostream& osc::operator<<(std::ostream& o, glm::mat4 const& m) {
     // prints in row-major, because that's how most people debug matrices
     for (int row = 0; row < 4; ++row) {
         char const* delim = "";
@@ -379,8 +370,12 @@ std::ostream& osc::operator<<(std::ostream& o, glm::mat4 const& m)
     return o;
 }
 
-bool osc::AreAtSameLocation(glm::vec3 const& a, glm::vec3 const& b) noexcept
+std::ostream& osc::operator<<(std::ostream& o, glm::quat const& q)
 {
+    return o << "quat(x = " << q.x << ", y = " << q.y << ", z = " << q.z << ", w = " << q.w << ')';
+}
+
+bool osc::AreAtSameLocation(glm::vec3 const& a, glm::vec3 const& b) noexcept {
     float eps = std::numeric_limits<float>::epsilon();
     float eps2 = eps * eps;
     glm::vec3 b2a = a - b;
@@ -388,28 +383,23 @@ bool osc::AreAtSameLocation(glm::vec3 const& a, glm::vec3 const& b) noexcept
     return len2 > eps2;
 }
 
-glm::vec3 osc::VecMin(glm::vec3 const& a, glm::vec3 const& b) noexcept
-{
+glm::vec3 osc::VecMin(glm::vec3 const& a, glm::vec3 const& b) noexcept {
     return glm::vec3{std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z)};
 }
 
-glm::vec2 osc::VecMin(glm::vec2 const& a, glm::vec2 const& b) noexcept
-{
+glm::vec2 osc::VecMin(glm::vec2 const& a, glm::vec2 const& b) noexcept {
     return glm::vec2{std::min(a.x, b.x), std::min(a.y, b.y)};
 }
 
-glm::vec3 osc::VecMax(glm::vec3 const& a, glm::vec3 const& b) noexcept
-{
+glm::vec3 osc::VecMax(glm::vec3 const& a, glm::vec3 const& b) noexcept {
     return glm::vec3{std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z)};
 }
 
-glm::vec2 osc::VecMax(glm::vec2 const& a, glm::vec2 const& b) noexcept
-{
+glm::vec2 osc::VecMax(glm::vec2 const& a, glm::vec2 const& b) noexcept {
     return glm::vec2{std::max(a.x, b.x), std::max(a.y, b.y)};
 }
 
-glm::vec3::length_type osc::VecLongestDimIdx(glm::vec3 const& v) noexcept
-{
+glm::vec3::length_type osc::VecLongestDimIdx(glm::vec3 const& v) noexcept {
     if (v.x > v.y && v.x > v.z) {
         return 0;  // X is longest
     } else if (v.y > v.z) {
@@ -419,8 +409,7 @@ glm::vec3::length_type osc::VecLongestDimIdx(glm::vec3 const& v) noexcept
     }
 }
 
-glm::vec2::length_type osc::VecLongestDimIdx(glm::vec2 v) noexcept
-{
+glm::vec2::length_type osc::VecLongestDimIdx(glm::vec2 v) noexcept {
     if (v.x > v.y) {
         return 0;  // X is longest
     } else {
@@ -428,8 +417,7 @@ glm::vec2::length_type osc::VecLongestDimIdx(glm::vec2 v) noexcept
     }
 }
 
-glm::ivec2::length_type osc::VecLongestDimIdx(glm::ivec2 v) noexcept
-{
+glm::ivec2::length_type osc::VecLongestDimIdx(glm::ivec2 v) noexcept {
     if (v.x > v.y) {
         return 0;  // X is longest
     } else {
@@ -437,28 +425,23 @@ glm::ivec2::length_type osc::VecLongestDimIdx(glm::ivec2 v) noexcept
     }
 }
 
-float osc::VecLongestDimVal(glm::vec3 const& v) noexcept
-{
+float osc::VecLongestDimVal(glm::vec3 const& v) noexcept {
     return v[VecLongestDimIdx(v)];
 }
 
-float osc::VecLongestDimVal(glm::vec2 v) noexcept
-{
+float osc::VecLongestDimVal(glm::vec2 v) noexcept {
     return v[VecLongestDimIdx(v)];
 }
 
-int osc::VecLongestDimVal(glm::ivec2 v) noexcept
-{
+int osc::VecLongestDimVal(glm::ivec2 v) noexcept {
     return v[VecLongestDimIdx(v)];
 }
 
-float osc::VecAspectRatio(glm::ivec2 v) noexcept
-{
+float osc::VecAspectRatio(glm::ivec2 v) noexcept {
     return static_cast<float>(v.x) / static_cast<float>(v.y);
 }
 
-float osc::VecAspectRatio(glm::vec2 v) noexcept
-{
+float osc::VecAspectRatio(glm::vec2 v) noexcept {
     return v.x/v.y;
 }
 
@@ -483,23 +466,31 @@ glm::vec3 osc::VecNumericallyStableAverage(glm::vec3 const* vs, size_t n) noexce
     return sum / static_cast<float>(n);
 }
 
+glm::vec3 osc::TriangleNormal(glm::vec3 const* v) noexcept {
+    glm::vec3 ab = v[1] - v[0];
+    glm::vec3 ac = v[2] - v[0];
+    glm::vec3 perpendiular = glm::cross(ab, ac);
+    return glm::normalize(perpendiular);
+}
 
-// MATRIX STUFF (impl)
+glm::vec3 osc::TriangleNormal(glm::vec3 const& a, glm::vec3 const& b, glm::vec3 const& c) noexcept {
+    glm::vec3 ab = b - a;
+    glm::vec3 ac = c - a;
+    glm::vec3 perpendiular = glm::cross(ab, ac);
+    return glm::normalize(perpendiular);
+}
 
-glm::mat3 osc::NormalMatrix(glm::mat4 const& m) noexcept
-{
+glm::mat3 osc::NormalMatrix(glm::mat4 const& m) noexcept {
     glm::mat3 topLeft{m};
     return glm::inverse(glm::transpose(topLeft));
 }
 
-glm::mat3 osc::NormalMatrix(glm::mat4x3 const& m) noexcept
-{
+glm::mat3 osc::NormalMatrix(glm::mat4x3 const& m) noexcept {
     glm::mat3 topLeft{m};
     return glm::inverse(glm::transpose(topLeft));
 }
 
-glm::mat4 osc::Dir1ToDir2Xform(glm::vec3 const& a, glm::vec3 const& b) noexcept
-{
+glm::mat4 osc::Dir1ToDir2Xform(glm::vec3 const& a, glm::vec3 const& b) noexcept {
     float cosAng = glm::dot(a, b);
 
     if (std::fabs(cosAng) > 0.999f) {
@@ -516,92 +507,218 @@ glm::mat4 osc::Dir1ToDir2Xform(glm::vec3 const& a, glm::vec3 const& b) noexcept
     return glm::rotate(glm::mat4{1.0f}, angle, rotAxis);
 }
 
-
-// ANALYTICAL GEOMETRY STUFF (impl)
-
-std::ostream& osc::operator<<(std::ostream& o, Triangle const& t)
+glm::vec3 osc::extractEulerAngleXYZ(glm::mat4 const& m) noexcept
 {
-    return o << "Triangle(p1 = " << t.p1 << ", p2 = " << t.p2 << ", p3 = " << t.p3 << ')';
+    glm::vec3 v;
+    glm::extractEulerAngleXYZ(m, v.x, v.y, v.z);
+    return v;
 }
 
-std::ostream& osc::operator<<(std::ostream& o, Rect const& r)
+// Transform impl.
+
+Transform osc::Transform::atPosition(glm::vec3 const& pos) noexcept
 {
-    return o << "Rect(topLeft = " << r.topLeft << ", bottomRight = " << r.bottomRight << ')';
+    Transform rv;
+    rv.position = pos;
+    return rv;
 }
 
-std::ostream& osc::operator<<(std::ostream& o, AABB const& aabb)
+Transform osc::Transform::byDecomposing(glm::mat4 const& mtx)
 {
-    return o << "AABB(min = " << aabb.min << ", max = " << aabb.max << ')';
+    Transform rv;
+    glm::vec3 skew;
+    glm::vec4 perspective;
+    if (!glm::decompose(mtx, rv.scale, rv.rotation, rv.position, skew, perspective)) {
+        throw std::runtime_error{"failed to decompose a matrix into scale, rotation, etc."};
+    }
+    return rv;
 }
 
-std::ostream& osc::operator<<(std::ostream& o, Sphere const& s)
+osc::Transform::Transform() noexcept :
+    position{0.0f, 0.0f, 0.0f},
+    rotation{1.0f, 0.0f, 0.0f, 0.0f},
+    scale{1.0f, 1.0f, 1.0f}
 {
-    return o << "Sphere(origin = " << s.origin << ", radius = " << s.radius << ')';
 }
 
-std::ostream& osc::operator<<(std::ostream& o, Ray const& l)
+osc::Transform::Transform(glm::vec3 const& position_) noexcept :
+    position{std::move(position_)},
+    rotation{1.0f, 0.0f, 0.0f, 0.0f},
+    scale{1.0f, 1.0f, 1.0f}
 {
-    return o << "Ray(origin = " << l.origin << ", direction = " << l.dir << ')';
 }
 
-std::ostream& osc::operator<<(std::ostream& o, Plane const& p)
+osc::Transform::Transform(glm::vec3 const& position_, glm::quat const& rotation_) noexcept :
+    position{std::move(position_)},
+    rotation{std::move(rotation_)},
+    scale{1.0f, 1.0f, 1.0f}
 {
-    return o << "Plane(origin = " << p.origin << ", normal = " << p.normal << ')';
 }
 
-std::ostream& osc::operator<<(std::ostream& o, Disc const& d)
+osc::Transform::Transform(glm::vec3 const& position_,
+                          glm::quat const& rotation_,
+                          glm::vec3 const& scale_) noexcept :
+    position{position_},
+    rotation{rotation_},
+    scale{scale_}
 {
-    return o << "Disc(origin = " << d.origin << ", normal = " << d.normal << ", radius = " << d.radius << ')';
 }
 
-std::ostream& osc::operator<<(std::ostream& o, Line const& d)
+Transform osc::Transform::withPosition(glm::vec3 const& pos) const noexcept
 {
-    return o << "Line(p1 = " << d.p1 << ", p2 = " << d.p2 << ')';
+    Transform t{*this};
+    t.position = pos;
+    return t;
 }
 
-glm::vec3 osc::TriangleNormal(Triangle const& t) noexcept
+Transform osc::Transform::withRotation(glm::quat const& rot) const noexcept
 {
-    glm::vec3 ab = t.p2 - t.p1;
-    glm::vec3 ac = t.p3 - t.p1;
-    glm::vec3 perpendiular = glm::cross(ab, ac);
-    return glm::normalize(perpendiular);
+    Transform t{*this};
+    t.rotation = rot;
+    return t;
 }
 
-glm::vec2 osc::RectDims(Rect const& r) noexcept
+Transform osc::Transform::withScale(glm::vec3 const& s) const noexcept
 {
-    return glm::abs(r.bottomRight - r.topLeft);
+    Transform t{*this};
+    t.scale = s;
+    return t;
 }
 
-float osc::RectAspectRatio(Rect const& r) noexcept
+std::ostream& osc::operator<<(std::ostream& o, Transform const& t)
 {
+    using osc::operator<<;
+    return o << "Transform(position = " << t.position << ", rotation = " << t.rotation << ", scale = " << t.scale << ')';
+}
+
+Transform& osc::operator+=(Transform& t, Transform const& o) noexcept
+{
+    t.position += o.position;
+    t.rotation += o.rotation;
+    t.scale += o.scale;
+    return t;
+}
+
+Transform& osc::operator/=(Transform& t, float s) noexcept
+{
+    t.position /= s;
+    t.rotation /= s;
+    t.scale /= s;
+    return t;
+}
+
+glm::mat4 osc::toMat4(Transform const& t) noexcept
+{
+    glm::mat4 scaler = glm::scale(glm::mat4{1.0f}, t.scale);
+    glm::mat4 rotater = glm::toMat4(t.rotation);
+    glm::mat4 translater = glm::translate(glm::mat4{1.0f}, t.position);
+
+    return translater * rotater * scaler;
+}
+
+glm::mat4 osc::toInverseMat4(Transform const& t) noexcept
+{
+    glm::mat4 translater = glm::translate(glm::mat4{1.0f}, -t.position);
+    glm::mat4 rotater = glm::toMat4(glm::conjugate(t.rotation));
+    glm::mat4 scaler = glm::scale(glm::mat4{1.0f}, 1.0f/t.scale);
+
+    return scaler * rotater * translater;
+}
+
+glm::mat3x3 osc::toNormalMatrix(Transform const& t) noexcept
+{
+    return NormalMatrix(toMat4(t));
+}
+
+glm::vec3 osc::transformDirection(Transform const& t, glm::vec3 const& localDir) noexcept
+{
+    return t.rotation * localDir;
+}
+
+glm::vec3 osc::inverseTransformDirection(Transform const& t, glm::vec3 const& worldDir) noexcept
+{
+    return glm::conjugate(t.rotation) * worldDir;
+}
+
+glm::vec3 osc::transformPoint(Transform const& t, glm::vec3 const& localPoint) noexcept
+{
+    glm::vec3 rv = localPoint;
+    rv *= t.scale;
+    rv = t.rotation * rv;
+    rv += t.position;
+    return rv;
+}
+
+glm::vec3 osc::inverseTransformPoint(Transform const& t, glm::vec3 const& worldPoint) noexcept
+{
+    glm::vec3 rv = worldPoint;
+    rv -= t.position;
+    rv = glm::conjugate(t.rotation) * rv;
+    rv /= t.scale;
+    return rv;
+}
+
+void osc::applyWorldspaceRotation(Transform& t,
+                                  glm::vec3 const& eulerAngles,
+                                  glm::vec3 const& rotationCenter) noexcept
+{
+    glm::quat q{eulerAngles};
+    t.position = q*(t.position - rotationCenter) + rotationCenter;
+    t.rotation = q*t.rotation;
+}
+
+glm::vec3 osc::eulerAnglesXYZ(Transform const& t) noexcept
+{
+    glm::vec3 rv;
+    glm::extractEulerAngleXYZ(glm::toMat4(t.rotation), rv.x, rv.y, rv.z);
+    return rv;
+}
+
+glm::vec3 osc::eulerAnglesExtrinsic(Transform const& t) noexcept
+{
+    return glm::eulerAngles(t.rotation);
+}
+
+std::ostream& osc::operator<<(std::ostream& o, Rect const& r) {
+    return o << "Rect(p1 = " << r.p1 << ", p2 = " << r.p2 << ")";
+}
+
+glm::vec2 osc::RectDims(Rect const& r) noexcept {
+    return glm::abs(r.p2 - r.p1);
+}
+
+float osc::RectAspectRatio(Rect const& r) noexcept {
     glm::vec2 dims = RectDims(r);
     return dims.x/dims.y;
 }
 
-bool osc::PointIsInRect(Rect const& r, glm::vec2 const& p) noexcept
-{
-    glm::vec2 relPos = p - r.topLeft;
+glm::mat4 osc::GroundToSphereXform(Sphere const& s) noexcept {
+    return glm::translate(glm::mat4{1.0f}, s.origin) * glm::scale(glm::mat4{1.0f}, {s.radius, s.radius, s.radius});
+}
+
+bool osc::PointIsInRect(Rect const& r, glm::vec2 const& p) noexcept {
+    glm::vec2 relPos = p - r.p1;
     glm::vec2 dims = RectDims(r);
     return (0.0f <= relPos.x && relPos.x <= dims.x) && (0.0f <= relPos.y && relPos.y <= dims.y);
 }
 
-glm::vec3 osc::AABBCenter(AABB const& a) noexcept
-{
+std::ostream& osc::operator<<(std::ostream& o, AABB const& aabb) {
+    return o << "AABB(min = " << aabb.min << ", max = " << aabb.max << ')';
+}
+
+glm::vec3 osc::AABBCenter(AABB const& a) noexcept {
     return (a.min + a.max)/2.0f;
 }
 
-glm::vec3 osc::AABBDims(AABB const& a) noexcept
-{
+glm::vec3 osc::AABBDims(AABB const& a) noexcept {
     return a.max - a.min;
 }
 
-AABB osc::AABBUnion(AABB const& a, AABB const& b) noexcept
-{
+AABB osc::AABBUnion(AABB const& a, AABB const& b) noexcept {
     return AABB{VecMin(a.min, b.min), VecMax(a.max, b.max)};
 }
 
-AABB osc::AABBUnion(void const* data, size_t n, size_t stride, size_t offset)
-{
+AABB osc::AABBUnion(void const* data, size_t n, size_t stride, size_t offset) {
     if (n == 0) {
         return AABB{};
     }
@@ -620,8 +737,7 @@ AABB osc::AABBUnion(void const* data, size_t n, size_t stride, size_t offset)
     return rv;
 }
 
-bool osc::AABBIsEmpty(AABB const& a) noexcept
-{
+bool osc::AABBIsEmpty(AABB const& a) noexcept {
     for (int i = 0; i < 3; ++i) {
         if (a.min[i] == a.max[i]) {
             return true;
@@ -630,13 +746,11 @@ bool osc::AABBIsEmpty(AABB const& a) noexcept
     return false;
 }
 
-glm::vec3::length_type osc::AABBLongestDimIdx(AABB const& a) noexcept
-{
+glm::vec3::length_type osc::AABBLongestDimIdx(AABB const& a) noexcept {
     return VecLongestDimIdx(AABBDims(a));
 }
 
-float osc::AABBLongestDim(AABB const& a) noexcept
-{
+float osc::AABBLongestDim(AABB const& a) noexcept {
     glm::vec3 dims = AABBDims(a);
     float rv = dims[0];
     rv = std::max(rv, dims[1]);
@@ -644,8 +758,8 @@ float osc::AABBLongestDim(AABB const& a) noexcept
     return rv;
 }
 
-std::array<glm::vec3, 8> osc::AABBVerts(AABB const& aabb) noexcept
-{
+std::array<glm::vec3, 8> osc::AABBVerts(AABB const& aabb) noexcept {
+
     glm::vec3 d = AABBDims(aabb);
 
     std::array<glm::vec3, 8> rv;
@@ -663,8 +777,7 @@ std::array<glm::vec3, 8> osc::AABBVerts(AABB const& aabb) noexcept
     return rv;
 }
 
-AABB osc::AABBApplyXform(AABB const& aabb, glm::mat4 const& m) noexcept
-{
+AABB osc::AABBApplyXform(AABB const& aabb, glm::mat4 const& m) noexcept {
     auto verts = AABBVerts(aabb);
     for (auto& vert : verts) {
         glm::vec4 p = m * glm::vec4{vert, 1.0f};
@@ -674,8 +787,7 @@ AABB osc::AABBApplyXform(AABB const& aabb, glm::mat4 const& m) noexcept
     return AABBFromVerts(verts.data(), verts.size());
 }
 
-AABB osc::AABBFromVerts(glm::vec3 const* vs, size_t n) noexcept
-{
+AABB osc::AABBFromVerts(glm::vec3 const* vs, size_t n) noexcept {
     AABB rv{};
 
     // edge-case: no points provided
@@ -698,8 +810,27 @@ AABB osc::AABBFromVerts(glm::vec3 const* vs, size_t n) noexcept
     return rv;
 }
 
-Sphere osc::SphereFromVerts(glm::vec3 const* vs, size_t n) noexcept
-{
+std::ostream& osc::operator<<(std::ostream& o, Sphere const& s) {
+    return o << "Sphere(origin = " << s.origin << ", radius = " << s.radius << ')';
+}
+
+std::ostream& osc::operator<<(std::ostream& o, Line const& l) {
+    return o << "Line(origin = " << l.origin << ", direction = " << l.dir << ')';
+}
+
+std::ostream& osc::operator<<(std::ostream& o, Plane const& p) {
+    return o << "Plane(origin = " << p.origin << ", normal = " << p.normal << ')';
+}
+
+std::ostream& osc::operator<<(std::ostream& o, Disc const& d) {
+    return o << "Disc(origin = " << d.origin << ", normal = " << d.normal << ", radius = " << d.radius << ')';
+}
+
+std::ostream& osc::operator<<(std::ostream& o, Segment const& d) {
+    return o << "Segment(p1 = " << d.p1 << ", p2 = " << d.p2 << ')';
+}
+
+Sphere osc::BoundingSphereFromVerts(glm::vec3 const* vs, size_t n) noexcept {
     AABB aabb = AABBFromVerts(vs, n);
 
     Sphere rv{};
@@ -724,37 +855,21 @@ Sphere osc::SphereFromVerts(glm::vec3 const* vs, size_t n) noexcept
     return rv;
 }
 
-AABB osc::SphereToAABB(Sphere const& s) noexcept
-{
+AABB osc::SphereToAABB(Sphere const& s) noexcept {
     AABB rv;
     rv.min = s.origin - s.radius;
     rv.max = s.origin + s.radius;
     return rv;
 }
 
-glm::mat4 osc::SphereXform(Sphere const& s) noexcept
-{
-    return glm::translate(glm::mat4{1.0f}, s.origin) * glm::scale(glm::mat4{1.0f}, {s.radius, s.radius, s.radius});
-}
-
-glm::mat4 osc::SphereToSphereXform(Sphere const& a, Sphere const& b) noexcept
-{
-    float scale = b.radius/a.radius;
-    glm::mat4 scaler = glm::scale(glm::mat4{1.0f}, glm::vec3{scale, scale, scale});
-    glm::mat4 mover = glm::translate(glm::mat4{1.0f}, b.origin - a.origin);
-    return mover * scaler;
-}
-
-Ray osc::RayApplyXform(Ray const& l, glm::mat4 const& m) noexcept
-{
-    Ray rv;
+Line osc::LineApplyXform(Line const& l, glm::mat4 const& m) noexcept {
+    Line rv;
     rv.dir = m * glm::vec4{l.dir, 0.0f};
     rv.origin = m * glm::vec4{l.origin, 1.0f};
     return rv;
 }
 
-glm::mat4 osc::DiscToDiscXform(Disc const& a, Disc const& b) noexcept
-{
+glm::mat4 osc::DiscToDiscXform(Disc const& a, Disc const& b) noexcept {
     // this is essentially LERPing [0,1] onto [1, l] to rescale only
     // along the line's original direction
 
@@ -787,8 +902,14 @@ glm::mat4 osc::DiscToDiscXform(Disc const& a, Disc const& b) noexcept
     return translator * rotator * scaler;
 }
 
-glm::mat4 osc::SegmentToSegmentXform(Line const& a, Line const& b) noexcept
-{
+glm::mat4 osc::SphereToSphereXform(Sphere const& a, Sphere const& b) noexcept {
+    float scale = b.radius/a.radius;
+    glm::mat4 scaler = glm::scale(glm::mat4{1.0f}, glm::vec3{scale, scale, scale});
+    glm::mat4 mover = glm::translate(glm::mat4{1.0f}, b.origin - a.origin);
+    return mover * scaler;
+}
+
+glm::mat4 osc::SegmentToSegmentXform(Segment const& a, Segment const& b) noexcept {
     glm::vec3 a1ToA2 = a.p2 - a.p1;
     glm::vec3 b1ToB2 = b.p2 - b.p1;
 
@@ -814,15 +935,11 @@ glm::mat4 osc::SegmentToSegmentXform(Line const& a, Line const& b) noexcept
 }
 
 
-// COLLISION STUFF (impl)
-
-RayCollision osc::GetRayCollisionSphere(Ray const& l, Sphere const& s) noexcept
-{
+RayCollision osc::GetRayCollisionSphere(Line const& l, Sphere const& s) noexcept {
     return GetRayCollisionSphereAnalytic(s, l);
 }
 
-RayCollision osc::GetRayCollisionAABB(Ray const& l, AABB const& bb) noexcept
-{
+RayCollision osc::GetRayCollisionAABB(Line const& l, AABB const& bb) noexcept {
     RayCollision rv;
 
     float t0 = std::numeric_limits<float>::lowest();
@@ -855,8 +972,7 @@ RayCollision osc::GetRayCollisionAABB(Ray const& l, AABB const& bb) noexcept
     return rv;
 }
 
-RayCollision osc::GetRayCollisionPlane(Ray const& l, Plane const& p) noexcept
-{
+RayCollision osc::GetRayCollisionPlane(Line const& l, Plane const& p) noexcept {
     // see: https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
     //
     // effectively, this is evaluating:
@@ -897,8 +1013,7 @@ RayCollision osc::GetRayCollisionPlane(Ray const& l, Plane const& p) noexcept
     }
 }
 
-RayCollision osc::GetRayCollisionDisc(Ray const& l, Disc const& d) noexcept
-{
+RayCollision osc::GetRayCollisionDisc(Line const& l, Disc const& d) noexcept {
     // see: https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
 
     // think of this as a ray-plane intersection test with the additional
@@ -933,8 +1048,7 @@ RayCollision osc::GetRayCollisionDisc(Ray const& l, Disc const& d) noexcept
     return rv;
 }
 
-RayCollision osc::GetRayCollisionTriangle(Ray const& l, glm::vec3 const* v) noexcept
-{
+RayCollision osc::GetRayCollisionTriangle(Line const& l, glm::vec3 const* v) noexcept {
     // see: https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/ray-triangle-intersection-geometric-solution
 
     RayCollision rv;
@@ -1015,11 +1129,7 @@ RayCollision osc::GetRayCollisionTriangle(Ray const& l, glm::vec3 const* v) noex
     return rv;
 }
 
-
-// COLOR STUFF (impl)
-
-Rgba32 osc::Rgba32FromVec4(glm::vec4 const& v) noexcept
-{
+Rgba32 osc::Rgba32FromVec4(glm::vec4 const& v) noexcept {
     Rgba32 rv;
     rv.r = static_cast<unsigned char>(255.0f * v.r);
     rv.g = static_cast<unsigned char>(255.0f * v.g);
@@ -1028,8 +1138,7 @@ Rgba32 osc::Rgba32FromVec4(glm::vec4 const& v) noexcept
     return rv;
 }
 
-Rgba32 osc::Rgba32FromF4(float r, float g, float b, float a) noexcept
-{
+Rgba32 osc::Rgba32FromF4(float r, float g, float b, float a) noexcept {
     Rgba32 rv;
     rv.r = static_cast<unsigned char>(255.0f * r);
     rv.g = static_cast<unsigned char>(255.0f * g);
@@ -1038,8 +1147,7 @@ Rgba32 osc::Rgba32FromF4(float r, float g, float b, float a) noexcept
     return rv;
 }
 
-Rgba32 osc::Rgba32FromU32(uint32_t v) noexcept
-{
+Rgba32 osc::Rgba32FromU32(uint32_t v) noexcept {
     Rgba32 rv;
     rv.r = static_cast<unsigned char>((v >> 24) & 0xff);
     rv.g = static_cast<unsigned char>((v >> 16) & 0xff);
@@ -1048,19 +1156,14 @@ Rgba32 osc::Rgba32FromU32(uint32_t v) noexcept
     return rv;
 }
 
-
-// MESH STUFF (impl)
-
-void osc::MeshData::clear()
-{
+void osc::MeshData::clear() {
     verts.clear();
     normals.clear();
     texcoords.clear();
     indices.clear();
 }
 
-void osc::MeshData::reserve(size_t n)
-{
+void osc::MeshData::reserve(size_t n) {
     verts.reserve(n);
     normals.reserve(n);
     texcoords.reserve(n);
@@ -1071,8 +1174,7 @@ std::ostream& osc::operator<<(std::ostream& o, MeshData const& m) {
     return o << "Mesh(nverts = " << m.verts.size() << ", nnormals = " << m.normals.size() << ", ntexcoords = " << m.texcoords.size() << ", nindices = " << m.indices.size() << ')';
 }
 
-MeshData osc::GenTexturedQuad()
-{
+MeshData osc::GenTexturedQuad() {
     MeshData rv;
     rv.reserve(g_ShadedTexturedQuadVerts.size());
 
@@ -1087,8 +1189,7 @@ MeshData osc::GenTexturedQuad()
     return rv;
 }
 
-MeshData osc::GenUntexturedUVSphere(size_t sectors, size_t stacks)
-{
+MeshData osc::GenUntexturedUVSphere(size_t sectors, size_t stacks) {
     MeshData rv;
     rv.reserve(2*3*stacks*sectors);
 
@@ -1164,8 +1265,7 @@ MeshData osc::GenUntexturedUVSphere(size_t sectors, size_t stacks)
     return rv;
 }
 
-MeshData osc::GenUntexturedSimbodyCylinder(size_t nsides)
-{
+MeshData osc::GenUntexturedSimbodyCylinder(size_t nsides) {
     MeshData rv;
     rv.reserve(4*3*nsides);
 
@@ -1244,8 +1344,7 @@ MeshData osc::GenUntexturedSimbodyCylinder(size_t nsides)
     return rv;
 }
 
-MeshData osc::GenUntexturedSimbodyCone(size_t nsides)
-{
+MeshData osc::GenUntexturedSimbodyCone(size_t nsides) {
     MeshData rv;
     rv.reserve(2*3*nsides);
 
@@ -1284,7 +1383,7 @@ MeshData osc::GenUntexturedSimbodyCone(size_t nsides)
             float thetaStart = i * stepAngle;
             float thetaEnd = (i + 1) * stepAngle;
 
-            Triangle points = {
+            glm::vec3 points[3] = {
                 {0.0f, topY, 0.0f},
                 {cosf(thetaEnd), bottomY, sinf(thetaEnd)},
                 {cosf(thetaStart), bottomY, sinf(thetaStart)},
@@ -1292,17 +1391,16 @@ MeshData osc::GenUntexturedSimbodyCone(size_t nsides)
 
             glm::vec3 normal = TriangleNormal(points);
 
-            push(points.p1, normal);
-            push(points.p2, normal);
-            push(points.p3, normal);
+            push(points[0], normal);
+            push(points[1], normal);
+            push(points[2], normal);
         }
     }
 
     return rv;
 }
 
-MeshData osc::GenNbyNGrid(size_t n)
-{
+MeshData osc::GenNbyNGrid(size_t n) {
     static constexpr float z = 0.0f;
     static constexpr float min = -1.0f;
     static constexpr float max = 1.0f;
@@ -1341,8 +1439,7 @@ MeshData osc::GenNbyNGrid(size_t n)
     return rv;
 }
 
-MeshData osc::GenYLine()
-{
+MeshData osc::GenYLine() {
     MeshData rv;
     rv.verts = {{0.0f, -1.0f, 0.0f}, {0.0f, +1.0f, 0.0f}};
     rv.indices = {0, 1};
@@ -1350,8 +1447,7 @@ MeshData osc::GenYLine()
     return rv;
 }
 
-MeshData osc::GenCube()
-{
+MeshData osc::GenCube() {
     MeshData rv;
     rv.reserve(g_ShadedTexturedCubeVerts.size());
 
@@ -1366,8 +1462,7 @@ MeshData osc::GenCube()
     return rv;
 }
 
-MeshData osc::GenCubeLines()
-{
+MeshData osc::GenCubeLines() {
     MeshData rv;
     rv.verts.reserve(g_CubeEdgeLines.size());
     rv.indices.reserve(g_CubeEdgeLines.size());
@@ -1382,8 +1477,7 @@ MeshData osc::GenCubeLines()
     return rv;
 }
 
-MeshData osc::GenCircle(size_t nsides)
-{
+MeshData osc::GenCircle(size_t nsides) {
     MeshData rv;
     rv.verts.reserve(3*nsides);
     rv.topography = MeshTopography::Lines;
@@ -1407,12 +1501,7 @@ MeshData osc::GenCircle(size_t nsides)
     return rv;
 }
 
-
-
-// CAMERA/VIEWPORT STUFF (impl)
-
-glm::vec2 osc::TopleftRelPosToNDCPoint(glm::vec2 relpos)
-{
+glm::vec2 osc::TopleftRelPosToNDCPoint(glm::vec2 relpos) {
     relpos.y = 1.0f - relpos.y;
     return 2.0f*relpos - 1.0f;
 }
@@ -1421,8 +1510,7 @@ glm::vec2 osc::TopleftRelPosToNDCPoint(glm::vec2 relpos)
 // the equivalent POINT on the front of the NDC cube (i.e. "as if" a viewer was there)
 //
 // i.e. {X_ndc, Y_ndc, -1.0f, 1.0f}
-glm::vec4 osc::TopleftRelPosToNDCCube(glm::vec2 relpos)
-{
+glm::vec4 osc::TopleftRelPosToNDCCube(glm::vec2 relpos) {
     return {TopleftRelPosToNDCPoint(relpos), -1.0f, 1.0f};
 }
 
@@ -1518,12 +1606,12 @@ glm::vec2 osc::PolarPerspectiveCamera::projectOntoScreenRect(glm::vec3 const& wo
     ndc2D += 1.0f;                  // [0, 2]
     ndc2D *= 0.5f;                  // [0, 1]
     ndc2D *= dims;                  // [0, w]
-    ndc2D += screenRect.topLeft;         // [x, x + w]
+    ndc2D += screenRect.p1;         // [x, x + w]
 
     return ndc2D;
 }
 
-Ray osc::PolarPerspectiveCamera::unprojectTopLeftPosToWorldRay(glm::vec2 pos, glm::vec2 dims) const noexcept {
+Line osc::PolarPerspectiveCamera::unprojectTopLeftPosToWorldRay(glm::vec2 pos, glm::vec2 dims) const noexcept {
     glm::mat4 projMtx = getProjMtx(dims.x/dims.y);
     glm::mat4 viewMtx = getViewMtx();
 
@@ -1539,7 +1627,7 @@ Ray osc::PolarPerspectiveCamera::unprojectTopLeftPosToWorldRay(glm::vec2 pos, gl
     // direction vector from camera to mouse location (i.e. the projection)
     glm::vec3 lineDirWorld = glm::normalize(lineOriginWorld - this->getPos());
 
-    Ray rv;
+    Line rv;
     rv.dir = lineDirWorld;
     rv.origin = lineOriginWorld;
     return rv;

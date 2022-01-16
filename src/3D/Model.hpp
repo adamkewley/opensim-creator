@@ -6,6 +6,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/mat4x3.hpp>
 #include <glm/mat3x3.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <iosfwd>
 #include <array>
@@ -20,9 +21,6 @@
 // all and has a very low-level view of view of things (verts, drawlists)
 namespace osc {
 
-
-    // VEC STUFF
-
     // glm printing utilities - handy for debugging
     std::ostream& operator<<(std::ostream&, glm::vec2 const&);
     std::ostream& operator<<(std::ostream&, glm::vec3 const&);
@@ -30,8 +28,9 @@ namespace osc {
     std::ostream& operator<<(std::ostream&, glm::mat3 const&);
     std::ostream& operator<<(std::ostream&, glm::mat4x3 const&);
     std::ostream& operator<<(std::ostream&, glm::mat4 const&);
+    std::ostream& operator<<(std::ostream&, glm::quat const&);
 
-    // returns true if the provided vectors are (effectively) at the same location
+    // returns true if the provided vectors are at the same location
     bool AreAtSameLocation(glm::vec3 const&, glm::vec3 const&) noexcept;
 
     // returns a vector containing min(a[dim], b[dim]) for each dimension
@@ -76,8 +75,11 @@ namespace osc {
     // returns the average of `n` vectors using whichever numerically stable average happens to work
     glm::vec3 VecNumericallyStableAverage(glm::vec3 const*, size_t n) noexcept;
 
+    // returns a normal vector of the supplied (pointed to) triangle (i.e. (v[1]-v[0]) x (v[2]-v[0]))
+    glm::vec3 TriangleNormal(glm::vec3 const*) noexcept;
 
-    // MATRIX STUFF
+    // returns a normal vector of the supplied triangle (i.e. (B-A) x (C-A))
+    glm::vec3 TriangleNormal(glm::vec3 const&, glm::vec3 const&, glm::vec3 const&) noexcept;
 
     // returns a normal matrix created from the supplied xform matrix
     glm::mat3 NormalMatrix(glm::mat4 const&) noexcept;
@@ -88,94 +90,152 @@ namespace osc {
     // returns matrix that rotates dir1 to point in the same direction as dir2
     glm::mat4 Dir1ToDir2Xform(glm::vec3 const& dir1, glm::vec3 const& dir2) noexcept;
 
+    // returns euler angles for performing an intrinsic, step-by-step, rotation about X, Y, and then Z
+    glm::vec3 extractEulerAngleXYZ(glm::mat4 const&) noexcept;
 
-    // ANALYTICAL GEOMETRY STUFF
+    // packaged-up "transform"
+    //
+    // this bundles translation, rotation, and scale transforms in once datastructure.
+    // The utility of using this over (e.g.) `mat4`s is that this datastructure is smaller,
+    // easier to work with, rescale, inverse, etc.
+    struct Transform final {
+        glm::vec3 position;
+        glm::quat rotation;
+        glm::vec3 scale;
 
-    // a 3D triangle
-    struct Triangle final {
-        glm::vec3 p1;
-        glm::vec3 p2;
-        glm::vec3 p3;
+        // identity transform with the given position at the provided point
+        static Transform atPosition(glm::vec3 const&) noexcept;
+
+        // decompose the transform's values from the given matrix
+        //
+        // throws if decomposition is not possible
+        static Transform byDecomposing(glm::mat4 const&);
+
+        // default-construct as an identity transform
+        Transform() noexcept;
+
+        // construct at a given position with an identity rotation and scale
+        Transform(glm::vec3 const&) noexcept;
+
+        // construct at a given position and rotation with an identity scale
+        Transform(glm::vec3 const& position, glm::quat const& rotation) noexcept;
+
+        // construct at a given position, rotation, and scale
+        Transform(glm::vec3 const& position,
+                  glm::quat const& rotation,
+                  glm::vec3 const& scale) noexcept;
+
+        // returns a new transform which is the same as the existing one, but with the
+        // provided position
+        Transform withPosition(glm::vec3 const&) const noexcept;
+
+        // returns a new transform which is the same as the existing one, but with
+        // the provided rotation
+        Transform withRotation(glm::quat const&) const noexcept;
+
+        // returns a new transform which is the same as the existing one, but with
+        // the provided scale
+        Transform withScale(glm::vec3 const&) const noexcept;
     };
 
-    // a 2D rectangle
+    // pretty-prints a `Transform` for readability
+    std::ostream& operator<<(std::ostream& o, Transform const&);
+
+    // performs component-wise addition of two transforms
+    Transform& operator+=(Transform&, Transform const&) noexcept;
+
+    // performs component-wise scalar division
+    Transform& operator/=(Transform&, float) noexcept;
+
+    // converts a `Transform` to a standard 4x4 transform matrix
+    glm::mat4 toMat4(Transform const&) noexcept;
+
+    // converts a `Transform` to a normal matrix
+    glm::mat3 toNormalMatrix(Transform const&) noexcept;
+
+    // inverses `Transform` and converts it to a standard 4x4 transformation matrix
+    glm::mat4 toInverseMat4(Transform const&) noexcept;
+
+    // transforms the direction of a vector
+    //
+    // not affected by scale or position of the transform. The returned vector has the
+    // same length as the provided vector
+    glm::vec3 transformDirection(Transform const&, glm::vec3 const&) noexcept;
+
+    // inverse-transforms the direction of a vector
+    //
+    // not affected by scale or position of the transform. The returned vector has the same
+    // length as the provided vector
+    glm::vec3 inverseTransformDirection(Transform const&, glm::vec3 const&) noexcept;
+
+    // transforms a point
+    //
+    // the returned point is affected by the position, rotation, and scale of the transform.
+    glm::vec3 transformPoint(Transform const&, glm::vec3 const&) noexcept;
+
+    // inverse-transforms a point
+    //
+    // the returned point is affected by the position, rotation, and scale of the transform.
+    glm::vec3 inverseTransformPoint(Transform const&, glm::vec3 const&) noexcept;
+
+    // applies a world-space rotation to the transform
+    void applyWorldspaceRotation(Transform& applicationTarget, glm::vec3 const& eulerAngles, glm::vec3 const& rotationCenter) noexcept;
+
+    // returns XYZ (pitch, yaw, roll) Euler angles for a one-by-one application of an
+    // intrinsic rotations. These rotations are what (e.g.) OpenSim uses for joint
+    // coordinates.
+    //
+    // Each rotation is applied one-at-a-time, to the transformed space, so we have:
+    //
+    // x-y-z (initial)
+    // x'-y'-z' (after first rotation)
+    // x''-y''-z'' (after second rotation)
+    // x'''-y'''-z''' (after third rotation)
+    //
+    // Assuming we're doing an XYZ rotation, the first rotation rotates x, the second
+    // rotation rotates around y', and the third rotation rotates around z''
+    //
+    // see: https://en.wikipedia.org/wiki/Euler_angles#Conventions_by_intrinsic_rotations
+    glm::vec3 eulerAnglesXYZ(Transform const&) noexcept;
+
+    // returns XYZ (pitch, yaw, roll) Euler angles for an extrinsic rotation
+    //
+    // in extrinsic rotations, each rotation happens about a *fixed* coordinate system, which
+    // is in contrast to intrinsic rotations, which happen in a coordinate system that's attached
+    // to a moving body (the thing being rotated)
+    //
+    // see: https://en.wikipedia.org/wiki/Euler_angles#Conventions_by_extrinsic_rotations
+    glm::vec3 eulerAnglesExtrinsic(Transform const&) noexcept;
+
     struct Rect final {
-        glm::vec2 topLeft;
-        glm::vec2 bottomRight;
+        glm::vec2 p1;
+        glm::vec2 p2;
     };
 
-    // a 3D axis-aligned bounding box (AABB)
+    std::ostream& operator<<(std::ostream&, Rect const&);
+
+    glm::vec2 RectDims(Rect const&) noexcept;
+    float RectAspectRatio(Rect const&) noexcept;
+    bool PointIsInRect(Rect const&, glm::vec2 const&) noexcept;
+
     struct AABB final {
         glm::vec3 min;
         glm::vec3 max;
     };
 
-    // a 3D sphere
-    struct Sphere final {
-        glm::vec3 origin;
-        float radius;
-    };
-
-    // a 3D ray (an infinitely-long line)
-    struct Ray final {
-        glm::vec3 origin;
-        glm::vec3 dir;
-    };
-
-    // a 3D line (a finite-length line)
-    struct Line final {
-        glm::vec3 p1;
-        glm::vec3 p2;
-    };
-
-    // a 3D plane
-    struct Plane final {
-        glm::vec3 origin;
-        glm::vec3 normal;
-    };
-
-    // a 3D disc (effectively, a 2D circle at some location in 3D space)
-    struct Disc final {
-        glm::vec3 origin;
-        glm::vec3 normal;
-        float radius;
-    };
-
-    // prints the supplied geometry in a human-readable format
-    std::ostream& operator<<(std::ostream&, Triangle const&);
-    std::ostream& operator<<(std::ostream&, Rect const&);
+    // prints the AABB in a human-readable format
     std::ostream& operator<<(std::ostream&, AABB const&);
-    std::ostream& operator<<(std::ostream&, Sphere const&);
-    std::ostream& operator<<(std::ostream&, Ray const&);
-    std::ostream& operator<<(std::ostream&, Plane const&);
-    std::ostream& operator<<(std::ostream&, Disc const&);
-    std::ostream& operator<<(std::ostream&, Line const&);
 
-    // returns a normal vector of the supplied (pointed to) triangle (i.e. (v[1]-v[0]) x (v[2]-v[0]))
-    glm::vec3 TriangleNormal(Triangle const&) noexcept;
-
-    // returns the rect's X and Y dimensions
-    glm::vec2 RectDims(Rect const&) noexcept;
-
-    // returns the rect's aspect ratio (effectively, RectDims(X)/RectDims(Y))
-    float RectAspectRatio(Rect const&) noexcept;
-
-    // returns true if the provided point is within the Rect
-    bool PointIsInRect(Rect const&, glm::vec2 const&) noexcept;
-
-    // returns the center-point of the AABB
+    // returns the centerpoint of an AABB
     glm::vec3 AABBCenter(AABB const&) noexcept;
 
-    // returns the 3D dimensions of the AABB
+    // returns the dimensions of an AABB
     glm::vec3 AABBDims(AABB const&) noexcept;
 
     // returns the smallest AABB that spans both of the provided AABBs
     AABB AABBUnion(AABB const&, AABB const&) noexcept;
 
-    // advanced: returns the smallest AABB that spans all of the provided AABBs
-    //
-    // `offset`: offset in bytes from the start of `data` where AABB is
-    // `stride`: stride between the `n` AABB instances
+    // advanced: returns the smallest AABB that spans all the AABBs at `offset` from the start of data with size `stride`
     AABB AABBUnion(void const* data, size_t n, size_t stride, size_t offset);
 
     // returns true if the AABB has an effective volume of 0
@@ -184,43 +244,72 @@ namespace osc {
     // returns the *index* of the longest dimension of an AABB
     glm::vec3::length_type AABBLongestDimIdx(AABB const&) noexcept;
 
-    // returns the *length* of the longest dimension of an AABB
+    // returns the length of the longest dimension of an AABB
     float AABBLongestDim(AABB const&) noexcept;
 
     // returns the eight corner points of the cuboid representation of the AABB
     std::array<glm::vec3, 8> AABBVerts(AABB const&) noexcept;
 
-    // returns an AABB that spans the provided AABB after applying the transform
+    // apply a transformation matrix to the AABB
+    //
+    // note: don't do this repeatably, because it can keep growing the AABB
     AABB AABBApplyXform(AABB const&, glm::mat4 const&) noexcept;
 
-    // returns an AABB that spans the provided 3D vertices
+    // computes an AABB from points in space
     AABB AABBFromVerts(glm::vec3 const*, size_t n) noexcept;
 
-    // returns a sphere that contains all of the provided verts
-    Sphere SphereFromVerts(glm::vec3 const*, size_t n) noexcept;
 
-    // returns an AABB that contains the provided sphere
+    struct Sphere final {
+        glm::vec3 origin;
+        float radius;
+    };
+
+    struct Line final {
+        glm::vec3 origin;
+        glm::vec3 dir;
+    };
+
+    struct Plane final {
+        glm::vec3 origin;
+        glm::vec3 normal;
+    };
+
+    struct Disc final {
+        glm::vec3 origin;
+        glm::vec3 normal;
+        float radius;
+    };
+
+    struct Segment final {
+        glm::vec3 p1;
+        glm::vec3 p2;
+    };
+
+    // prints the supplied geometry in a human-readable format
+    std::ostream& operator<<(std::ostream&, Sphere const&);
+    std::ostream& operator<<(std::ostream&, Line const&);
+    std::ostream& operator<<(std::ostream&, Plane const&);
+    std::ostream& operator<<(std::ostream&, Disc const&);
+    std::ostream& operator<<(std::ostream&, Segment const&);
+
+    // analytical geometry calculations
+    Sphere BoundingSphereFromVerts(glm::vec3 const*, size_t n) noexcept;
     AABB SphereToAABB(Sphere const&) noexcept;
+    Line LineApplyXform(Line const&, glm::mat4 const&) noexcept;
 
     // returns an xform that maps an origin centered r=1 sphere into an in-scene sphere
-    glm::mat4 SphereXform(Sphere const&) noexcept;
-
-    // returns an xform that maps a sphere to another sphere
-    glm::mat4 SphereToSphereXform(Sphere const&, Sphere const&) noexcept;
-
-    // returns a ray that has been transformed by the provided transform matrix
-    Ray RayApplyXform(Ray const&, glm::mat4 const&) noexcept;
+    glm::mat4 GroundToSphereXform(Sphere const&) noexcept;
 
     // returns an xform that maps a disc to another disc
     glm::mat4 DiscToDiscXform(Disc const&, Disc const&) noexcept;
 
+    // returns an xform that maps a sphere to another sphere
+    glm::mat4 SphereToSphereXform(Sphere const&, Sphere const&) noexcept;
+
     // returns an xform that maps a path segment to another path segment
-    glm::mat4 SegmentToSegmentXform(Line const&, Line const&) noexcept;
+    glm::mat4 SegmentToSegmentXform(Segment const&, Segment const&) noexcept;
 
 
-    // COLLISION STUFF (depends on analytical geometry)
-
-    // a 3D collision between a ray and a piece of geometry
     struct RayCollision final {
         bool hit;
         float distance;
@@ -231,14 +320,12 @@ namespace osc {
     };
 
     // collision tests
-    RayCollision GetRayCollisionSphere(Ray const&, Sphere const&) noexcept;
-    RayCollision GetRayCollisionAABB(Ray const&, AABB const&) noexcept;
-    RayCollision GetRayCollisionPlane(Ray const&, Plane const&) noexcept;
-    RayCollision GetRayCollisionDisc(Ray const&, Disc const&) noexcept;
-    RayCollision GetRayCollisionTriangle(Ray const&, glm::vec3 const*) noexcept;
+    RayCollision GetRayCollisionSphere(Line const&, Sphere const&) noexcept;
+    RayCollision GetRayCollisionAABB(Line const&, AABB const&) noexcept;
+    RayCollision GetRayCollisionPlane(Line const&, Plane const&) noexcept;
+    RayCollision GetRayCollisionDisc(Line const&, Disc const&) noexcept;
+    RayCollision GetRayCollisionTriangle(Line const&, glm::vec3 const*) noexcept;
 
-
-    // COLOR STUFF
 
     struct Rgba32 final {
         unsigned char r;
@@ -258,24 +345,20 @@ namespace osc {
     Rgba32 Rgba32FromF4(float, float, float, float) noexcept;
     Rgba32 Rgba32FromU32(uint32_t) noexcept;  // R at MSB
 
-
-    // MESH STUFF
-
     enum class MeshTopography {
         Triangles,
         Lines,
     };
 
-    // CPU-side mesh data
+    // CPU-side mesh
     //
     // These can be generated/manipulated on any CPU core without having to worry
     // about the GPU
     //
-    // see `Mesh` for the GPU-facing and user-friendly version of this. The separation
-    // between mesh data and meshes exists because the algs in this header are supposed
-    // to be simple and portable, rather than fast and usable, so that lower-level
-    // CPU-only code can use these without having to worry about which GPU API is active,
-    // buffer packing, etc.
+    // see `Mesh` for the GPU-facing and user-friendly version of this. This separation
+    // exists because the algs in this header are supposed to be simple and portable,
+    // so that lower-level CPU-only code can use these without having to worry
+    // about which GPU API is active, buffer packing, etc.
     struct MeshData {
         std::vector<glm::vec3> verts;
         std::vector<glm::vec3> normals;
@@ -320,8 +403,6 @@ namespace osc {
     // generates a circle at Z == 0, X/Y == [-1, +1] (r = 1)
     MeshData GenCircle(size_t nsides);
 
-
-    // CAMERA/VIEWPORT STUFF
 
     // converts a topleft-origin RELATIVE `pos` (0 to 1 in XY starting topleft) into an
     // XY location in NDC (-1 to +1 in XY starting in the middle)
@@ -378,7 +459,7 @@ namespace osc {
         glm::vec3 getPos() const noexcept;
 
         // converts a `pos` (top-left) in the output `dims` into a line in worldspace by unprojection
-        Ray unprojectTopLeftPosToWorldRay(glm::vec2 pos, glm::vec2 dims) const noexcept;
+        Line unprojectTopLeftPosToWorldRay(glm::vec2 pos, glm::vec2 dims) const noexcept;
     };
 
     // camera that moves freely through space (e.g. FPS games)

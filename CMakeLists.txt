@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(osc VERSION 0.0.6 LANGUAGES C CXX)
+project(osc VERSION 0.0.7 LANGUAGES C CXX)
 
 
 # -------------- gather user-facing build config options ---------------- #
@@ -169,6 +169,8 @@ add_executable(osc
     src/3D/Gl.cpp
     src/3D/Gl.hpp
     src/3D/GlGlm.hpp
+    src/3D/InstancedRenderer.cpp
+    src/3D/InstancedRenderer.hpp
     src/3D/Mesh.cpp
     src/3D/Mesh.hpp
     src/3D/Model.cpp
@@ -200,43 +202,43 @@ add_executable(osc
     src/OpenSimBindings/UndoableUiModel.cpp
     src/OpenSimBindings/UndoableUiModel.hpp
 
-#    src/Screens/Experimental/ExperimentsScreen.cpp
-#    src/Screens/Experimental/ExperimentsScreen.hpp
+    src/Screens/Experimental/ExperimentsScreen.cpp
+    src/Screens/Experimental/ExperimentsScreen.hpp
     src/Screens/Experimental/HelloTriangleScreen.cpp
     src/Screens/Experimental/HelloTriangleScreen.hpp
-#    src/Screens/Experimental/HittestScreen.cpp
-#    src/Screens/Experimental/HittestScreen.hpp
-#    src/Screens/Experimental/ImGuizmoDemoScreen.cpp
-#    src/Screens/Experimental/ImGuizmoDemoScreen.hpp
-#    src/Screens/Experimental/InstancedRendererScreen.cpp
-#    src/Screens/Experimental/InstancedRendererScreen.hpp
-#    src/Screens/Experimental/MathExperimentsScreen.cpp
-#    src/Screens/Experimental/MathExperimentsScreen.hpp
-#    src/Screens/Experimental/MeshHittestScreen.cpp
-#    src/Screens/Experimental/MeshHittestScreen.hpp
-#    src/Screens/Experimental/MeshHittestWithBVHScreen.cpp
-#    src/Screens/Experimental/MeshHittestWithBVHScreen.hpp
-#    src/Screens/Experimental/MeshScreen.cpp
-#    src/Screens/Experimental/MeshScreen.hpp
-#    src/Screens/Experimental/MeshesToModelWizardScreen.cpp
-#    src/Screens/Experimental/MeshesToModelWizardScreen.hpp
-#    src/Screens/Experimental/UiModelViewerScreen.cpp
-#    src/Screens/Experimental/UiModelViewerScreen.hpp
-#
-#    src/Screens/CookiecutterScreen.cpp
-#    src/Screens/CookiecutterScreen.hpp
-#    src/Screens/ErrorScreen.cpp
-#    src/Screens/ErrorScreen.hpp
-#    src/Screens/ImGuiDemoScreen.cpp
-#    src/Screens/ImGuiDemoScreen.hpp
-#    src/Screens/LoadingScreen.cpp
-#    src/Screens/LoadingScreen.hpp
-#    src/Screens/ModelEditorScreen.cpp
-#    src/Screens/ModelEditorScreen.hpp
-#    src/Screens/SimulatorScreen.cpp
-#    src/Screens/SimulatorScreen.hpp
-#    src/Screens/SplashScreen.cpp
-#    src/Screens/SplashScreen.hpp
+    src/Screens/Experimental/HittestScreen.cpp
+    src/Screens/Experimental/HittestScreen.hpp
+    src/Screens/Experimental/ImGuizmoDemoScreen.cpp
+    src/Screens/Experimental/ImGuizmoDemoScreen.hpp
+    src/Screens/Experimental/InstancedRendererScreen.cpp
+    src/Screens/Experimental/InstancedRendererScreen.hpp
+    src/Screens/Experimental/MathExperimentsScreen.cpp
+    src/Screens/Experimental/MathExperimentsScreen.hpp
+    src/Screens/Experimental/MeshHittestScreen.cpp
+    src/Screens/Experimental/MeshHittestScreen.hpp
+    src/Screens/Experimental/MeshHittestWithBVHScreen.cpp
+    src/Screens/Experimental/MeshHittestWithBVHScreen.hpp
+    src/Screens/Experimental/MeshScreen.cpp
+    src/Screens/Experimental/MeshScreen.hpp
+    src/Screens/Experimental/MeshesToModelWizardScreen.cpp
+    src/Screens/Experimental/MeshesToModelWizardScreen.hpp
+    src/Screens/Experimental/UiModelViewerScreen.cpp
+    src/Screens/Experimental/UiModelViewerScreen.hpp
+
+    src/Screens/CookiecutterScreen.cpp
+    src/Screens/CookiecutterScreen.hpp
+    src/Screens/ErrorScreen.cpp
+    src/Screens/ErrorScreen.hpp
+    src/Screens/ImGuiDemoScreen.cpp
+    src/Screens/ImGuiDemoScreen.hpp
+    src/Screens/LoadingScreen.cpp
+    src/Screens/LoadingScreen.hpp
+    src/Screens/ModelEditorScreen.cpp
+    src/Screens/ModelEditorScreen.hpp
+    src/Screens/SimulatorScreen.cpp
+    src/Screens/SimulatorScreen.hpp
+    src/Screens/SplashScreen.cpp
+    src/Screens/SplashScreen.hpp
 
     src/SimTKBindings/SceneGeneratorNew.cpp
     src/SimTKBindings/SceneGeneratorNew.hpp
@@ -244,41 +246,39 @@ add_executable(osc
     src/SimTKBindings/SimTKLoadMesh.cpp
     src/SimTKBindings/SimTKLoadMesh.hpp
 
-#    src/UI/AddBodyPopup.cpp
-#    src/UI/AddBodyPopup.hpp
-#    src/UI/AddComponentPopup.cpp
-#    src/UI/AddComponentPopup.hpp
-#    src/UI/AttachGeometryPopup.cpp
-#    src/UI/AttachGeometryPopup.hpp
-#    src/UI/ComponentDetails.cpp
-#    src/UI/ComponentDetails.hpp
-#    src/UI/ComponentHierarchy.cpp
-#    src/UI/ComponentHierarchy.hpp
-#    src/UI/CoordinateEditor.cpp
-#    src/UI/CoordinateEditor.hpp
-#    src/UI/F3Editor.cpp
-#    src/UI/F3Editor.hpp
-#    src/UI/FdParamsEditorPopup.cpp
-#    src/UI/FdParamsEditorPopup.hpp
-#    src/UI/HelpMarker.cpp
-#    src/UI/HelpMarker.hpp
-#    src/UI/LogViewer.cpp
-#    src/UI/LogViewer.hpp
-#    src/UI/MainMenu.cpp
-#    src/UI/MainMenu.hpp
-#    src/UI/ModelActionsMenuBar.cpp
-#    src/UI/ModelActionsMenuBar.hpp
-#    src/UI/PropertyEditors.cpp
-#    src/UI/PropertyEditors.hpp
-#    src/UI/ReassignSocketPopup.hpp
-#    src/UI/ReassignSocketPopup.cpp
-#    src/UI/Select1PFPopup.cpp
-#    src/UI/Select1PFPopup.hpp
-#    src/UI/Select2PFsPopup.cpp
-#    src/UI/Select2PFsPopup.hpp
-#    src/UI/SelectComponentPopup.hpp
-#    src/UI/UiModelViewer.cpp
-#    src/UI/UiModelViewer.hpp
+    src/UI/AddBodyPopup.cpp
+    src/UI/AddBodyPopup.hpp
+    src/UI/AddComponentPopup.cpp
+    src/UI/AddComponentPopup.hpp
+    src/UI/AttachGeometryPopup.cpp
+    src/UI/AttachGeometryPopup.hpp
+    src/UI/ComponentDetails.cpp
+    src/UI/ComponentDetails.hpp
+    src/UI/ComponentHierarchy.cpp
+    src/UI/ComponentHierarchy.hpp
+    src/UI/CoordinateEditor.cpp
+    src/UI/CoordinateEditor.hpp
+    src/UI/F3Editor.cpp
+    src/UI/F3Editor.hpp
+    src/UI/FdParamsEditorPopup.cpp
+    src/UI/FdParamsEditorPopup.hpp
+    src/UI/LogViewer.cpp
+    src/UI/LogViewer.hpp
+    src/UI/MainMenu.cpp
+    src/UI/MainMenu.hpp
+    src/UI/ModelActionsMenuBar.cpp
+    src/UI/ModelActionsMenuBar.hpp
+    src/UI/PropertyEditors.cpp
+    src/UI/PropertyEditors.hpp
+    src/UI/ReassignSocketPopup.hpp
+    src/UI/ReassignSocketPopup.cpp
+    src/UI/Select1PFPopup.cpp
+    src/UI/Select1PFPopup.hpp
+    src/UI/Select2PFsPopup.cpp
+    src/UI/Select2PFsPopup.hpp
+    src/UI/SelectComponentPopup.hpp
+    src/UI/UiModelViewer.cpp
+    src/UI/UiModelViewer.hpp
 
     src/Utils/Algorithms.cpp
     src/Utils/Algorithms.hpp
@@ -307,8 +307,8 @@ add_executable(osc
     src/Log.hpp
     src/MeshCache.cpp
     src/MeshCache.hpp
-    #src/MainEditorState.cpp
-    #src/MainEditorState.hpp
+    src/MainEditorState.cpp
+    src/MainEditorState.hpp
     src/RecentFile.hpp
     src/Screen.hpp
     src/Styling.hpp

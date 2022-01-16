@@ -30,19 +30,15 @@ static char g_VertexShader[] = R"(
         vec3 fragPos = vec3(uModelMat * vec4(aPos, 1.0));
         vec3 frag2viewDir = normalize(uViewPos - fragPos);
         vec3 frag2lightDir = normalize(-uLightDir);  // light dir is in the opposite direction
+        vec3 halfwayDir = (frag2lightDir + frag2viewDir)/2.0;
 
-        vec3 ambientComponent = ambientStrength * uLightColor;
+        float ambientAmt = ambientStrength;
+        float diffuseAmt = diffuseStrength * max(dot(normalDir, frag2lightDir), 0.0);
+        float specularAmt = specularStrength * pow(max(dot(normalDir, halfwayDir), 0.0), shininess);
 
-        float diffuseAmount = max(dot(normalDir, frag2lightDir), 0.0);
-        vec3 diffuseComponent = diffuseStrength * diffuseAmount * uLightColor;
+        float lightAmt = clamp(ambientAmt + diffuseAmt + specularAmt, 0.0, 1.0);
 
-        vec3 halfwayDir = normalize(frag2lightDir + frag2viewDir);
-        float specularAmmount = pow(max(dot(normalDir, halfwayDir), 0.0), shininess);
-        vec3 specularComponent = specularStrength * specularAmmount * uLightColor;
-
-        vec3 lightStrength = ambientComponent + diffuseComponent + specularComponent;
-
-        GouraudBrightness = vec4(uLightColor * lightStrength, 1.0);
+        GouraudBrightness = vec4(lightAmt * uLightColor, 1.0);
         TexCoord = aTexCoord;
     }
 )";
@@ -60,7 +56,7 @@ static char const g_FragmentShader[] = R"(
     out vec4 Color0Out;
 
     void main() {
-        vec4 color = uIsTextured ? texture(uSampler0, TexCoord) * uDiffuseColor : uDiffuseColor;
+        vec4 color = uIsTextured ? uDiffuseColor * texture(uSampler0, TexCoord) : uDiffuseColor;
         color *= GouraudBrightness;
 
         Color0Out = color;
