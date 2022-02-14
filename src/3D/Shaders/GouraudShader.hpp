@@ -9,21 +9,21 @@ namespace osc {
     struct GouraudShader final : public Shader {
         gl::Program program;
 
-        static constexpr gl::AttributeVec3 aPos = SHADER_LOC_VERTEX_POSITION;
-        static constexpr gl::AttributeVec2 aTexCoord = SHADER_LOC_VERTEX_TEXCOORD01;
-        static constexpr gl::AttributeVec3 aNormal = SHADER_LOC_VERTEX_NORMAL;
+        static constexpr gl::Attribute<gl::ShaderType::Vec3> aPos = SHADER_LOC_VERTEX_POSITION;
+        static constexpr gl::Attribute<gl::ShaderType::Vec2> aTexCoord = SHADER_LOC_VERTEX_TEXCOORD01;
+        static constexpr gl::Attribute<gl::ShaderType::Vec3> aNormal = SHADER_LOC_VERTEX_NORMAL;
 
         // uniforms
-        gl::UniformMat4 uProjMat;
-        gl::UniformMat4 uViewMat;
-        gl::UniformMat4 uModelMat;
-        gl::UniformMat3 uNormalMat;
-        gl::UniformVec4 uDiffuseColor;
-        gl::UniformVec3 uLightDir;
-        gl::UniformVec3 uLightColor;
-        gl::UniformVec3 uViewPos;
-        gl::UniformBool uIsTextured;
-        gl::UniformSampler2D uSampler0;
+        gl::Uniform<gl::ShaderType::Mat4> uProjMat;
+        gl::Uniform<gl::ShaderType::Mat4> uViewMat;
+        gl::Uniform<gl::ShaderType::Mat4> uModelMat;
+        gl::Uniform<gl::ShaderType::Mat3> uNormalMat;
+        gl::Uniform<gl::ShaderType::Vec4> uDiffuseColor;
+        gl::Uniform<gl::ShaderType::Vec3> uLightDir;
+        gl::Uniform<gl::ShaderType::Vec3> uLightColor;
+        gl::Uniform<gl::ShaderType::Vec3> uViewPos;
+        gl::Uniform<gl::ShaderType::Bool> uIsTextured;
+        gl::Uniform<gl::ShaderType::Sampler2D> uSampler0;
 
         GouraudShader();
     };

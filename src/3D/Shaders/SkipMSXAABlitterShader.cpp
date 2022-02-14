@@ -46,12 +46,13 @@ static char const g_FragmentShader[] = R"(
 )";
 
 osc::SkipMSXAABlitterShader::SkipMSXAABlitterShader() :
-    program{gl::CreateProgramFrom(
-        gl::CompileFromSource<gl::VertexShader>(g_VertexShader),
-        gl::CompileFromSource<gl::FragmentShader>(g_FragmentShader))},
-
-    uModelMat{gl::GetUniformLocation(program, "uModelMat")},
-    uViewMat{gl::GetUniformLocation(program, "uViewMat")},
-    uProjMat{gl::GetUniformLocation(program, "uProjMat")},
-    uSampler0{gl::GetUniformLocation(program, "uSampler0")} {
+    program{
+        gl::Shader{GL_VERTEX_SHADER, g_VertexShader},
+        gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader}
+    },
+    uModelMat{program, "uModelMat"},
+    uViewMat{program, "uViewMat"},
+    uProjMat{program, "uProjMat"},
+    uSampler0{program, "uSampler0"}
+{
 }

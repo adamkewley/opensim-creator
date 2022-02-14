@@ -9,13 +9,13 @@ namespace osc {
     struct SkipMSXAABlitterShader final : public Shader {
         gl::Program program;
 
-        static constexpr gl::AttributeVec3 aPos = SHADER_LOC_VERTEX_POSITION;
-        static constexpr gl::AttributeVec2 aTexCoord = SHADER_LOC_VERTEX_TEXCOORD01;
+        static constexpr gl::Attribute<gl::ShaderType::Vec3> aPos = SHADER_LOC_VERTEX_POSITION;
+        static constexpr gl::Attribute<gl::ShaderType::Vec2> aTexCoord = SHADER_LOC_VERTEX_TEXCOORD01;
 
-        gl::UniformMat4 uModelMat;
-        gl::UniformMat4 uViewMat;
-        gl::UniformMat4 uProjMat;
-        gl::UniformSampler2DMS uSampler0;
+        gl::Uniform<gl::ShaderType::Mat4> uModelMat;
+        gl::Uniform<gl::ShaderType::Mat4> uViewMat;
+        gl::Uniform<gl::ShaderType::Mat4> uProjMat;
+        gl::Uniform<gl::ShaderType::Sampler2DMS> uSampler0;
 
         SkipMSXAABlitterShader();
     };

@@ -88,13 +88,14 @@ static char const g_FragmentShader[] = R"(
 )";
 
 osc::NormalsShader::NormalsShader() :
-    program{gl::CreateProgramFrom(
-        gl::CompileFromSource<gl::VertexShader>(g_VertexShader),
-        gl::CompileFromSource<gl::FragmentShader>(g_FragmentShader),
-        gl::CompileFromSource<gl::GeometryShader>(g_GeomShader))},
-
-    uModelMat{gl::GetUniformLocation(program, "uModelMat")},
-    uViewMat{gl::GetUniformLocation(program, "uViewMat")},
-    uProjMat{gl::GetUniformLocation(program, "uProjMat")},
-    uNormalMat{gl::GetUniformLocation(program, "uNormalMat")} {
+    program{
+        gl::Shader{GL_VERTEX_SHADER, g_VertexShader},
+        gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader},
+        gl::Shader{GL_GEOMETRY_SHADER, g_GeomShader}
+    },
+    uModelMat{program, "uModelMat"},
+    uViewMat{program, "uViewMat"},
+    uProjMat{program, "uProjMat"},
+    uNormalMat{program, "uNormalMat"}
+{
 }

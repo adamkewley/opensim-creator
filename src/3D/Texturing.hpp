@@ -6,10 +6,10 @@ namespace osc {
 
     // texturing
 
-    // generate a chequered floor texture
+    // generate a chequered floor texture (GL_TEXTURE2D)
     //
     // this is typically used as a default scene floor for visualization
-    gl::Texture2D genChequeredFloorTexture();
+    gl::Texture GenChequeredFloorTexture();
 
     // flags for loading textures from disk
     enum TexFlag {
@@ -28,7 +28,7 @@ namespace osc {
 
     // an image loaded onto the GPU, plus CPU-side metadata (dimensions, channels)
     struct ImageTexture final {
-        gl::Texture2D texture;
+        gl::Texture texture;
         int width;
         int height;
         int channels;  // in most cases, 3 == RGB, 4 == RGBA
@@ -40,7 +40,7 @@ namespace osc {
     // read 6 image files into a single OpenGL cubemap (GL_TEXTURE_CUBE_MAP)
     //
     // useful for skyboxes, precomputed point-shadow maps, etc.
-    gl::TextureCubemap loadCubemapAsCubemapTexture(
+    gl::Texture loadCubemapAsCubemapTexture(
         char const* pathPosX,
         char const* pathNegX,
         char const* pathPosY,

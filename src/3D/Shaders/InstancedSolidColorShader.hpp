@@ -8,11 +8,11 @@ namespace osc {
     struct InstancedSolidColorShader final : public Shader {
         gl::Program program;
 
-        static constexpr gl::AttributeVec3 aPos = SHADER_LOC_VERTEX_POSITION;
-        static constexpr gl::AttributeMat4x3 aModelMat = SHADER_LOC_MATRIX_MODEL;
+        static constexpr gl::Attribute<gl::ShaderType::Vec3> aPos = SHADER_LOC_VERTEX_POSITION;
+        static constexpr gl::Attribute<gl::ShaderType::Mat4x3> aModelMat = SHADER_LOC_MATRIX_MODEL;
 
-        gl::UniformMat4 uVP;
-        gl::UniformVec4 uColor;
+        gl::Uniform<gl::ShaderType::Mat4> uVP;
+        gl::Uniform<gl::ShaderType::Vec4> uColor;
 
         InstancedSolidColorShader();
     };
