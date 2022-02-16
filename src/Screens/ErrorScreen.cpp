@@ -52,7 +52,8 @@ void osc::ErrorScreen::onEvent(SDL_Event const& e)
 
     if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
     {
-        App::cur().requestTransition<SplashScreen>();
+        // TODO
+        //App::cur().requestTransition<SplashScreen>();
     }
 }
 
@@ -81,7 +82,8 @@ void osc::ErrorScreen::draw()
 
             if (ImGui::Button("Return to splash screen (Escape)"))
             {
-                App::cur().requestTransition<SplashScreen>();
+                // TODO
+                // App::cur().requestTransition<SplashScreen>();
             }
         }
         ImGui::End();

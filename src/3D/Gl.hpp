@@ -187,20 +187,35 @@ namespace gl {
 
     GLint GetUniformLocationOrThrow(Program const& p, GLchar const* name);
 
-    enum class ShaderType {
-        Float,
-        Int,
-        Sampler2D,
-        Sampler2DMS,
-        SamplerCube,
-        Bool,
-        Vec2,
-        Vec3,
-        Vec4,
-        Mat4,
-        Mat3,
-        Mat4x3
+    enum ShaderType {
+        Glsl_Float = 0,
+        Glsl_Int,
+        Glsl_Sampler2D,
+        Glsl_Sampler2DMS,
+        Glsl_SamplerCube,
+        Glsl_Bool,
+        Glsl_Vec2,
+        Glsl_Vec3,
+        Glsl_Vec4,
+        Glsl_Mat4,
+        Glsl_Mat3,
+        Glsl_Mat4x3,
+        Glsl_TOTAL,
     };
+    #define OSC_GLSL_SHADERTYPE_NAMES { \
+        "Glsl_Float" , \
+        "Glsl_Int", \
+        "Glsl_Sampler2D", \
+        "Glsl_Sampler2DMS", \
+        "Glsl_SamplerCube", \
+        "Glsl_Bool", \
+        "Glsl_Vec2", \
+        "Glsl_Vec3", \
+        "Glsl_Vec4", \
+        "Glsl_Mat4", \
+        "Glsl_Mat3", \
+        "Glsl_Mat4x3", \
+    }
     std::ostream& operator<<(std::ostream&, ShaderType);
     int GetNumShaderLocationsTakenBy(ShaderType);
     int GetNumElementsPerLocation(ShaderType);
@@ -228,14 +243,14 @@ namespace gl {
         return o;
     }
 
-    void SetUniform(Uniform<ShaderType::Float>& u, GLfloat value);
-    void SetUniform(Uniform<ShaderType::Vec3>& u, float x, float y, float z);
-    void SetUniform(Uniform<ShaderType::Int>& u, GLint value);
-    void SetUniform(Uniform<ShaderType::Sampler2D>& u, GLint v);
-    void SetUniform(Uniform<ShaderType::Sampler2DMS>& u, GLint v);
-    void SetUniform(Uniform<ShaderType::Bool>& u, bool v);
-    void SetUniform(Uniform<ShaderType::Vec3>& u, float const vs[3]);
-    void SetUniform(Uniform<ShaderType::Int>& u, GLsizei n, GLint const* data);
+    void SetUniform(Uniform<Glsl_Float>& u, GLfloat value);
+    void SetUniform(Uniform<Glsl_Vec3>& u, float x, float y, float z);
+    void SetUniform(Uniform<Glsl_Int>& u, GLint value);
+    void SetUniform(Uniform<Glsl_Sampler2D>& u, GLint v);
+    void SetUniform(Uniform<Glsl_Sampler2DMS>& u, GLint v);
+    void SetUniform(Uniform<Glsl_Bool>& u, bool v);
+    void SetUniform(Uniform<Glsl_Vec3>& u, float const vs[3]);
+    void SetUniform(Uniform<Glsl_Int>& u, GLsizei n, GLint const* data);
 
     GLint GetAttribLocationOrThrow(Program const& p, GLchar const* name);
 

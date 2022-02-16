@@ -1,5 +1,6 @@
 #include "Gl.hpp"
 
+#include <array>
 #include <exception>
 #include <sstream>
 #include <vector>
@@ -8,6 +9,36 @@
 #define GL_STRINGIFY(x) #x
 #define GL_TOSTRING(x) GL_STRINGIFY(x)
 #define GL_SOURCELOC __FILE__ ":" GL_TOSTRING(__LINE__)
+
+static constexpr std::array<char const* const, gl::Glsl_TOTAL> g_ShaderTypeNames = OSC_GLSL_SHADERTYPE_NAMES;
+static constexpr std::array<int, gl::Glsl_TOTAL> g_ShaderLocationsTakenBy = {
+    1,  // Glsl_Float
+    1,  // Glsl_Int
+    1,  // Glsl_Sampler2D
+    1,  // Glsl_Sampler2DMS
+    1,  // Glsl_SamplerCube
+    1,  // Glsl_Bool
+    1,  // Glsl_Vec2
+    1,  // Glsl_Vec3
+    1,  // Glsl_Vec4
+    4,  // Glsl_Mat4
+    3,  // Glsl_Mat3
+    4,  // Glsl_Mat4x3
+};
+static constexpr std::array<int, gl::Glsl_TOTAL> g_ShaderElementsPerLocation = {
+    1,  // Glsl_Float
+    1,  // Glsl_Int
+    1,  // Glsl_Sampler2D
+    1,  // Glsl_Sampler2DMS
+    1,  // Glsl_SamplerCube
+    1,  // Glsl_Bool
+    2,  // Glsl_Vec2
+    3,  // Glsl_Vec3
+    4,  // Glsl_Vec4
+    4,  // Glsl_Mat4
+    3,  // Glsl_Mat3
+    3,  // Glsl_Mat4x3
+};
 
 GLuint gl::CreateShader(GLenum shaderType)
 {
@@ -693,85 +724,17 @@ GLint gl::GetUniformLocationOrThrow(Program const& p, GLchar const* name)
 
 std::ostream& gl::operator<<(std::ostream& o, ShaderType s)
 {
-    switch (s) {
-    case ShaderType::Float:
-        return o << "Float";
-    case ShaderType::Int:
-        return o << "Int";
-    case ShaderType::Sampler2D:
-        return o << "Sampler2D";
-    case ShaderType::Sampler2DMS:
-        return o << "Sampler2DMS";
-    case ShaderType::SamplerCube:
-        return o << "SamplerCube";
-    case ShaderType::Bool:
-        return o << "Bool";
-    case ShaderType::Vec2:
-        return o << "Vec2";
-    case ShaderType::Vec3:
-        return o << "Vec3";
-    case ShaderType::Vec4:
-        return o << "Vec4";
-    case ShaderType::Mat4:
-        return o << "Mat4";
-    case ShaderType::Mat3:
-        return o << "Mat3";
-    case ShaderType::Mat4x3:
-        return o << "Mat4x3";
-    default:
-        throw std::logic_error{GL_SOURCELOC ": unsupported shader type passed in"};
-    }
+    return o << g_ShaderTypeNames.at(s);
 }
 
 int gl::GetNumShaderLocationsTakenBy(ShaderType t)
 {
-    switch (t) {
-    case ShaderType::Float:
-    case ShaderType::Int:
-    case ShaderType::Sampler2D:
-    case ShaderType::Sampler2DMS:
-    case ShaderType::SamplerCube:
-    case ShaderType::Bool:
-    case ShaderType::Vec2:
-    case ShaderType::Vec3:
-    case ShaderType::Vec4:
-        return 1;
-    case ShaderType::Mat4:
-        return 4;
-    case ShaderType::Mat3:
-        return 3;
-    case ShaderType::Mat4x3:
-        return 4;
-    default:
-        throw std::logic_error{GL_SOURCELOC ": unsupported shader type passed to GetNumShaderLocationsTakenBy"};
-    }
+    return g_ShaderLocationsTakenBy.at(t);
 }
 
 int gl::GetNumElementsPerLocation(ShaderType t)
 {
-    switch (t) {
-    case ShaderType::Float:
-    case ShaderType::Int:
-    case ShaderType::Sampler2D:
-    case ShaderType::Sampler2DMS:
-    case ShaderType::SamplerCube:
-    case ShaderType::Bool:
-        return 1;
-    case ShaderType::Vec2:
-        return 2;
-    case ShaderType::Vec3:
-        return 3;
-    case ShaderType::Vec4:
-        return 4;
-    case ShaderType::Mat4:
-        return 4;
-    case ShaderType::Mat3:
-        return 3;
-    case ShaderType::Mat4x3:
-        return 3;
-    default:
-        throw std::logic_error{GL_SOURCELOC ": unsupported shader type passed to GetNumElementsPerLocation"};
-    }
+    return g_ShaderElementsPerLocation.at(t);
 }
 
 void gl::WriteUniformToStream(std::ostream& o, GLint location, ShaderType st)
@@ -779,43 +742,43 @@ void gl::WriteUniformToStream(std::ostream& o, GLint location, ShaderType st)
     o << "Uniform<" << st << ">(loc = " << location << ')';
 }
 
-void gl::SetUniform(gl::Uniform<gl::ShaderType::Float>& u, GLfloat value)
+void gl::SetUniform(gl::Uniform<Glsl_Float>& u, GLfloat value)
 {
     Uniform1f(u.geti(), value);
 }
 
-void gl::SetUniform(Uniform<ShaderType::Vec3>& u, float x, float y, float z)
+void gl::SetUniform(Uniform<Glsl_Vec3>& u, float x, float y, float z)
 {
     Uniform3f(u.geti(), x, y, z);
 }
 
 
-void gl::SetUniform(Uniform<ShaderType::Int>& u, GLint value)
+void gl::SetUniform(Uniform<Glsl_Int>& u, GLint value)
 {
     Uniform1i(u.geti(), value);
 }
 
-void gl::SetUniform(Uniform<ShaderType::Sampler2DMS>& u, GLint v)
+void gl::SetUniform(Uniform<Glsl_Sampler2DMS>& u, GLint v)
 {
     Uniform1i(u.geti(), v);
 }
 
-void gl::SetUniform(Uniform<ShaderType::Sampler2D>& u, GLint v)
+void gl::SetUniform(Uniform<Glsl_Sampler2D>& u, GLint v)
 {
     Uniform1i(u.geti(), v);
 }
 
-void gl::SetUniform(Uniform<ShaderType::Bool>& u, bool v)
+void gl::SetUniform(Uniform<Glsl_Bool>& u, bool v)
 {
     Uniform1i(u.geti(), v);
 }
 
-void gl::SetUniform(Uniform<ShaderType::Vec3>& u, float const vs[3])
+void gl::SetUniform(Uniform<Glsl_Vec3>& u, float const vs[3])
 {
     Uniform3fv(u.geti(), 1, vs);
 }
 
-void gl::SetUniform(Uniform<ShaderType::Int>& u, GLsizei n, GLint const* data)
+void gl::SetUniform(Uniform<Glsl_Int>& u, GLsizei n, GLint const* data)
 {
     Uniform1iv(u.geti(), n, data);
 }
@@ -824,7 +787,8 @@ void gl::SetUniform(Uniform<ShaderType::Int>& u, GLsizei n, GLint const* data)
 GLint gl::GetAttribLocationOrThrow(Program const& p, GLchar const* name)
 {
     GLint handle = GetAttribLocation(p.get(), name);
-    if (handle == -1) {
+    if (handle == -1)
+    {
         throw OpenGlException{std::string{"glGetAttribLocation() failed: cannot get "} + name};
     }
     return handle;

@@ -74,7 +74,7 @@ osc::Rect osc::ContentRegionAvailScreenRect()
     return Rect{topLeft, bottomRight};
 }
 
-void osc::DrawTextureAsImGuiImage(gl::Texture2D& t, glm::vec2 dims)
+void osc::DrawTextureAsImGuiImage(gl::Texture& t, glm::vec2 dims)
 {
     void* textureHandle = reinterpret_cast<void*>(static_cast<uintptr_t>(t.get()));
     ImVec2 uv0{0.0f, 1.0f};

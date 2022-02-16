@@ -8,7 +8,6 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
-using namespace osc;
 
 static constexpr char const g_VertexShader[] = R"(
     #version 330 core
@@ -40,8 +39,8 @@ namespace {
             gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader}
         };
 
-        gl::Attribute<gl::ShaderType::Vec3> aPos{program, "aPos"};
-        gl::Uniform<gl::ShaderType::Vec4> uColor{program, "uColor"};
+        gl::Attribute<gl::Glsl_Vec3> aPos{program, "aPos"};
+        gl::Uniform<gl::Glsl_Vec4> uColor{program, "uColor"};
     };
 }
 
@@ -50,7 +49,7 @@ static gl::VertexArray CreateVAO(BasicShader& shader, gl::Buffer const& points)
     gl::BufferBindingDescription description
     {
         shader.aPos.geti(),
-        gl::ShaderType::Vec3,
+        gl::Glsl_Vec3,
         GL_FLOAT,
         false,
         0

@@ -1,8 +1,11 @@
-#include "src/Screens/LoadingScreen.hpp"
-#include "src/Screens/SplashScreen.hpp"
+//#include "src/Screens/LoadingScreen.hpp"
+//#include "src/Screens/SplashScreen.hpp"
+#include "src/Screens/Experimental/HelloTriangleScreen.hpp"
 #include "src/App.hpp"
 #include "src/Log.hpp"
-#include "src/MainEditorState.hpp"
+//#include "src/MainEditorState.hpp"
+
+#include <iostream>
 
 using namespace osc;
 
@@ -59,16 +62,7 @@ int main(int argc, char** argv)
     {
         // init main app (window, OpenGL, etc.)
         App app;
-
-        if (argc <= 0)
-        {
-            app.show<SplashScreen>();
-        }
-        else
-        {
-            auto mes = std::make_shared<MainEditorState>();
-            app.show<LoadingScreen>(mes, argv[0]);
-        }
+        app.show<HelloTriangleScreen>();
 
         log::info("exited main application event loop: shutting down application");
 
