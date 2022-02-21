@@ -182,26 +182,26 @@ add_executable(osc
     src/3D/Texturing.cpp
     src/3D/Texturing.hpp
 
-    src/OpenSimBindings/FileChangePoller.cpp
-    src/OpenSimBindings/FileChangePoller.hpp
-    src/OpenSimBindings/OpenSimHelpers.hpp
-    src/OpenSimBindings/OpenSimHelpers.cpp
-    src/OpenSimBindings/PlottableOutputSubfield.cpp
-    src/OpenSimBindings/PlottableOutputSubfield.hpp
-    src/OpenSimBindings/RenderableScene.cpp
-    src/OpenSimBindings/RenderableScene.hpp
-    src/OpenSimBindings/Simulation.cpp
-    src/OpenSimBindings/Simulation.hpp
-    src/OpenSimBindings/StateModifications.cpp
-    src/OpenSimBindings/StateModifications.hpp
-    src/OpenSimBindings/TypeRegistry.cpp
-    src/OpenSimBindings/TypeRegistry.hpp
-    src/OpenSimBindings/UiModel.cpp
-    src/OpenSimBindings/UiModel.hpp
-    src/OpenSimBindings/UiSimulation.cpp
-    src/OpenSimBindings/UiSimulation.hpp
-    src/OpenSimBindings/UndoableUiModel.cpp
-    src/OpenSimBindings/UndoableUiModel.hpp
+#    src/OpenSimBindings/FileChangePoller.cpp
+#    src/OpenSimBindings/FileChangePoller.hpp
+#    src/OpenSimBindings/OpenSimHelpers.hpp
+#    src/OpenSimBindings/OpenSimHelpers.cpp
+#    src/OpenSimBindings/PlottableOutputSubfield.cpp
+#    src/OpenSimBindings/PlottableOutputSubfield.hpp
+#    src/OpenSimBindings/RenderableScene.cpp
+#    src/OpenSimBindings/RenderableScene.hpp
+#    src/OpenSimBindings/Simulation.cpp
+#    src/OpenSimBindings/Simulation.hpp
+#    src/OpenSimBindings/StateModifications.cpp
+#    src/OpenSimBindings/StateModifications.hpp
+#    src/OpenSimBindings/TypeRegistry.cpp
+#    src/OpenSimBindings/TypeRegistry.hpp
+#    src/OpenSimBindings/UiModel.cpp
+#    src/OpenSimBindings/UiModel.hpp
+#    src/OpenSimBindings/UiSimulation.cpp
+#    src/OpenSimBindings/UiSimulation.hpp
+#    src/OpenSimBindings/UndoableUiModel.cpp
+#    src/OpenSimBindings/UndoableUiModel.hpp
 
 #    src/Screens/Experimental/CookiecutterScreen.cpp
 #    src/Screens/Experimental/CookiecutterScreen.hpp
@@ -243,11 +243,11 @@ add_executable(osc
 #    src/Screens/SplashScreen.cpp
 #    src/Screens/SplashScreen.hpp
 
-    src/SimTKBindings/SceneGeneratorNew.cpp
-    src/SimTKBindings/SceneGeneratorNew.hpp
-    src/SimTKBindings/SimTKConverters.hpp
-    src/SimTKBindings/SimTKLoadMesh.cpp
-    src/SimTKBindings/SimTKLoadMesh.hpp
+#    src/SimTKBindings/SceneGeneratorNew.cpp
+#    src/SimTKBindings/SceneGeneratorNew.hpp
+#    src/SimTKBindings/SimTKConverters.hpp
+#    src/SimTKBindings/SimTKLoadMesh.cpp
+#    src/SimTKBindings/SimTKLoadMesh.hpp
 
 #    src/UI/AddBodyPopup.cpp
 #    src/UI/AddBodyPopup.hpp
