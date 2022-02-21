@@ -1,6 +1,5 @@
 #include "MeshCache.hpp"
 
-#include "src/3D/Mesh.hpp"
 #include "src/SimTKBindings/SimTKLoadMesh.hpp"
 #include "src/Log.hpp"
 

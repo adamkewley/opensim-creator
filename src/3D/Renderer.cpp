@@ -235,6 +235,65 @@ namespace
         }
         return rv;
     }
+
+    std::vector<PackedIndex> PackIndexRangeAsU16(size_t n)
+    {
+        OSC_ASSERT(n <= std::numeric_limits<uint16_t>::max());
+
+        size_t numEls = (n+1)/2;
+
+        std::vector<PackedIndex> rv;
+        rv.reserve(numEls);
+
+        for (size_t i = 0, end = n-1; i < end; i += 2)
+        {
+            PackedIndex& pi = rv.emplace_back();
+            pi.u16.a = static_cast<uint16_t>(i);
+            pi.u16.b = static_cast<uint16_t>(i+1);
+        }
+
+        if (n % 2)
+        {
+            PackedIndex& pi = rv.emplace_back();
+            pi.u16.a = static_cast<uint16_t>(n-1);
+            pi.u16.b = {};
+        }
+
+        return rv;
+    }
+
+    std::vector<PackedIndex> PackIndexRangeAsU32(size_t n)
+    {
+        std::vector<PackedIndex> rv;
+        rv.reserve(n);
+
+        for (size_t i = 0; i < n; ++i)
+        {
+            PackedIndex& pi = rv.emplace_back();
+            pi.u32 = static_cast<uint32_t>(i);
+        }
+
+        return rv;
+    }
+
+    template<typename T>
+    static std::vector<T> Create0ToNIndices(size_t n)
+    {
+        static_assert(std::is_integral_v<T>);
+
+        OSC_ASSERT(n >= 0);
+        OSC_ASSERT(n <= std::numeric_limits<T>::max());
+
+        std::vector<T> rv;
+        rv.reserve(n);
+
+        for (T i = 0; i < n; ++i)
+        {
+            rv.push_back(i);
+        }
+
+        return rv;
+    }
 }
 
 
@@ -242,6 +301,17 @@ namespace
 
 class osc::Mesh::Impl final {
 public:
+    Impl() = default;
+
+    Impl(MeshTopographyNew t, nonstd::span<glm::vec3 const> verts) :
+        m_Topography{std::move(t)},
+        m_Verts(verts.begin(), verts.end()),
+        m_IndexFormat{verts.size() <= std::numeric_limits<uint16_t>::max() ? IndexFormat::UInt16 : IndexFormat::UInt32},
+        m_NumIndices{static_cast<int>(verts.size())},
+        m_IndicesData{m_IndexFormat == IndexFormat::UInt16 ? PackIndexRangeAsU16(verts.size()) : PackIndexRangeAsU32(verts.size())}
+    {
+        recalculateBounds();
+    }
 
     MeshTopographyNew getTopography() const
     {
@@ -699,7 +769,7 @@ class osc::CameraNew::Impl final {
 public:
     Impl(Texture2D);
 
-    glm::vec4 const& getBackgroundColor() const;
+    glm::vec4 getBackgroundColor() const;
     void setBackgroundColor(glm::vec4 const&);
 
     CameraProjection getCameraProjection() const;
@@ -709,7 +779,7 @@ public:
     //
     // e.g. https://docs.unity3d.com/ScriptReference/Camera-orthographicSize.html
     float getOrthographicSize() const;
-    void setOrthographicSize(glm::vec2);
+    void setOrthographicSize(float);
 
     // only used if perspective
     float getCameraFOV() const;
@@ -732,6 +802,12 @@ public:
     std::optional<Rect> getScissorRect() const;
     void setScissorRect(Rect const&);  // rect is in pixel space?
     void setScissorRect();  // resets to having no scissor
+
+    glm::vec3 getPosition() const;
+    void setPosition(glm::vec3 const&);
+
+    glm::vec3 getDirection() const;
+    void setDirection(glm::vec3 const&);
 
     glm::mat4 const& getCameraToWorldMatrix() const;
 
@@ -767,6 +843,11 @@ std::string osc::to_string(MeshTopographyNew t)
 // osc::Mesh impl
 
 osc::Mesh::Mesh() : m_Impl{std::make_shared<Impl>()} {}
+
+osc::Mesh::Mesh(MeshTopographyNew t, nonstd::span<glm::vec3 const> verts) :
+    m_Impl{std::make_shared<Impl>(std::move(t), std::move(verts))}
+{
+}
 
 osc::Mesh::Mesh(Mesh const&) = default;
 
@@ -1582,7 +1663,7 @@ bool osc::CameraNew::operator<(CameraNew const& o) const
     return m_Impl < o.m_Impl;
 }
 
-glm::vec4 const& osc::CameraNew::getBackgroundColor() const
+glm::vec4 osc::CameraNew::getBackgroundColor() const
 {
     return m_Impl->getBackgroundColor();
 }
@@ -1609,7 +1690,7 @@ float osc::CameraNew::getOrthographicSize() const
     return m_Impl->getOrthographicSize();
 }
 
-void osc::CameraNew::setOrthographicSize(glm::vec2 v)
+void osc::CameraNew::setOrthographicSize(float v)
 {
     DoCopyOnWrite(m_Impl);
     m_Impl->setOrthographicSize(std::move(v));
@@ -1697,6 +1778,28 @@ void osc::CameraNew::setScissorRect()
     m_Impl->setScissorRect();
 }
 
+glm::vec3 osc::CameraNew::getPosition() const
+{
+    return m_Impl->getPosition();
+}
+
+void osc::CameraNew::setPosition(glm::vec3 const& p)
+{
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setPosition(p);
+}
+
+glm::vec3 osc::CameraNew::getDirection() const
+{
+    return m_Impl->getDirection();
+}
+
+void osc::CameraNew::setDirection(glm::vec3 const& d)
+{
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setDirection(d);
+}
+
 glm::mat4 const& osc::CameraNew::getCameraToWorldMatrix() const
 {
     return m_Impl->getCameraToWorldMatrix();
@@ -1726,7 +1829,7 @@ size_t std::hash<osc::CameraNew>::operator()(osc::CameraNew const& c) const
 
 // osc::GraphicsBackend
 
-void osc::GraphicsBackend::DrawMesh(Mesh&, glm::vec3 const& pos, glm::quat const& rot, CameraNew&, MaterialPropertyBlock const*)
+void osc::Graphics::DrawMesh(Mesh&, glm::vec3 const& pos, CameraNew&, MaterialPropertyBlock const*)
 {
     // - copy the data onto the camera's command buffer list
     // - deal with any batch flushing etc.

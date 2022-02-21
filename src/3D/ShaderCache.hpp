@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/3D/Shader.hpp"
+#include "src/3D/Renderer.hpp"
 
 #include <atomic>
 #include <cassert>

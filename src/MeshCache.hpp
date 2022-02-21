@@ -1,7 +1,5 @@
 #pragma once
 
-#include "src/3D/Mesh.hpp"
-
 #include <memory>
 #include <string>
 

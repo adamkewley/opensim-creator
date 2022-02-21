@@ -41,39 +41,15 @@ static glm::vec3 const g_TriangleData[] =
     {+0.0f, +1.0f, 0.0f},
 };
 
-template<typename T>
-static std::vector<T> Create0ToNIndices(size_t n)
-{
-    static_assert(std::is_integral_v<T>);
-
-    OSC_ASSERT(n >= 0);
-    OSC_ASSERT(n <= std::numeric_limits<T>::max());
-
-    std::vector<T> rv;
-    rv.reserve(n);
-
-    for (size_t i = 0; i < n; ++i)
-    {
-        rv.push_back(i);
-    }
-
-    return rv;
-}
-
-static osc::Mesh CreateBasicTriangleMesh(nonstd::span<glm::vec3 const> verts)
-{
-    osc::Mesh m;
-    m.setVerts(verts);
-    m.setIndices(Create0ToNIndices<uint16_t>(verts.size()));
-    return m;
-}
-
 class osc::HelloTriangleScreen::Impl final {
 public:
     Impl()
     {
         m_Camera.setCameraProjection(CameraProjection_Orthographic);
         m_Camera.setBackgroundColor({1.0f, 1.0f, 1.0f, 1.0f});
+        m_Camera.setPosition({ 0.0f, 0.0f, 1.0f });
+        m_Camera.setDirection({ 0.0f, 0.0f, -1.0f});  // points down
+        m_Camera.setOrthographicSize(2.0f);  // triangle height
     }
 
     void onEvent(SDL_Event const& e)
@@ -96,17 +72,13 @@ public:
 
     void draw()
     {
-        // TODO: setting camera position
-        // TODO: how does orthographic projection work here?
-        // TODO: DrawMesh without rotation?
-
         m_MaterialProps.setColor(m_Color);
-        GraphicsBackend::DrawMesh(m_Mesh, {0.0f, 0.0f, 0.0f}, m_Camera, &m_MaterialProps);
+        Graphics::DrawMesh(m_Mesh, {0.0f, 0.0f, 0.0f}, m_Camera, &m_MaterialProps);
     }
 
 private:
-    Material m_Material = Material{Shader::compile(g_ShaderSrc)};
-    Mesh m_Mesh = CreateBasicTriangleMesh(g_TriangleData);
+    Material m_Material{Shader::compile(g_ShaderSrc)};
+    Mesh m_Mesh{MeshTopographyNew_Triangles, g_TriangleData};
     CameraNew m_Camera;
     MaterialPropertyBlock m_MaterialProps;
     float m_FadeSpeed = 1.0f;
@@ -115,7 +87,8 @@ private:
 
 // public API
 
-osc::HelloTriangleScreen::HelloTriangleScreen() : m_Impl{new Impl{}}
+osc::HelloTriangleScreen::HelloTriangleScreen() :
+    m_Impl{new Impl{}}
 {
 }
 

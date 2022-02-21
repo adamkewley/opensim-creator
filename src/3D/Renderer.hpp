@@ -28,6 +28,7 @@ namespace osc
     class Mesh final {
     public:
         Mesh();
+        Mesh(MeshTopographyNew, nonstd::span<glm::vec3 const> verts);
         Mesh(Mesh const&);
         Mesh(Mesh&&) noexcept;
         ~Mesh() noexcept;
@@ -407,7 +408,7 @@ namespace osc
         bool operator!=(CameraNew const&) const;
         bool operator<(CameraNew const&) const;
 
-        glm::vec4 const& getBackgroundColor() const;
+        glm::vec4 getBackgroundColor() const;
         void setBackgroundColor(glm::vec4 const&);
 
         CameraProjection getCameraProjection() const;
@@ -417,7 +418,7 @@ namespace osc
         //
         // e.g. https://docs.unity3d.com/ScriptReference/Camera-orthographicSize.html
         float getOrthographicSize() const;
-        void setOrthographicSize(glm::vec2);
+        void setOrthographicSize(float);
 
         // only used if perspective
         float getCameraFOV() const;
@@ -433,6 +434,13 @@ namespace osc
         void setTexture(Texture2D);
         void setTexture();  // resets to drawing to screen
 
+        // where on the screen the camera is rendered (in screen-space)
+        //
+        // returns rect at 0,0 with width and height of texture if drawing
+        // to a texture
+        Rect getPixelRect() const;
+        void setPixelRect(Rect const&);
+
         int getPixelWidth() const;
         int getPixelHeight() const;
         float getAspectRatio() const;
@@ -440,6 +448,12 @@ namespace osc
         std::optional<Rect> getScissorRect() const;
         void setScissorRect(Rect const&);  // rect is in pixel space?
         void setScissorRect();  // resets to having no scissor
+
+        glm::vec3 getPosition() const;
+        void setPosition(glm::vec3 const&);
+
+        glm::vec3 getDirection() const;
+        void setDirection(glm::vec3 const&);
 
         glm::mat4 const& getCameraToWorldMatrix() const;
 
