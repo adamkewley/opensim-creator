@@ -26,11 +26,6 @@ namespace osc
     std::string to_string(MeshTopographyNew);
 
     class Mesh final {
-        friend class GraphicsBackend;
-        friend class std::hash<Mesh>;
-        friend std::ostream& operator<<(std::ostream&, Mesh const&);
-        friend std::string to_string(Mesh const&);
-
     public:
         Mesh();
         Mesh(Mesh const&);
@@ -63,11 +58,18 @@ namespace osc
         void setIndices(nonstd::span<uint32_t const>);
 
         AABB const& getBounds() const;  // local-space
+        RayCollision getClosestRayTriangleCollisionModelspace(Line const& modelspaceLine) const;
+        RayCollision getClosestRayTriangleCollisionWorldspace(Line const& worldspaceLine, glm::mat4 const& model2world) const;
 
         void clear();
 
         class Impl;
     private:
+        friend class GraphicsBackend;
+        friend struct std::hash<Mesh>;
+        friend std::ostream& operator<<(std::ostream&, Mesh const&);
+        friend std::string to_string(Mesh const&);
+
         std::shared_ptr<Impl> m_Impl;
     };
 
@@ -105,9 +107,6 @@ namespace osc
 
     // a handle to a 2D texture that can be rendered by the graphics backend
     class Texture2D final {
-        friend class GraphicsBackend;
-        friend class std::hash<Texture2D>;
-
     public:
         // RGBA32, SRGB
         Texture2D(int width, int height, nonstd::span<Rgba32 const>);
@@ -139,10 +138,13 @@ namespace osc
         TextureFilterMode getFilterMode() const;
         void setFilterMode(TextureFilterMode);
 
-        void* getRawHandle();  // careful: only use this if you know what you're doing
-
         class Impl;
     private:
+        friend class GraphicsBackend;
+        friend struct std::hash<Texture2D>;
+        friend std::ostream& operator<<(std::ostream&, Texture2D const&);
+        friend std::string to_string(Texture2D const&);
+
         std::shared_ptr<Impl> m_Impl;
     };
 
@@ -183,14 +185,9 @@ namespace osc
 
     // a handle to a shader
     class Shader final {
-        friend class GraphicsBackend;
-        friend class std::hash<Shader>;
-
-    private:
-        explicit Shader(char const*);
     public:
-        static Shader compile(char const*);  // throws on compile error
-
+        static Shader compile(char const* src);
+        explicit Shader(char const* src);  // throws on compile error
         Shader(Shader const&);
         Shader(Shader&&) noexcept;
         ~Shader() noexcept;
@@ -214,6 +211,11 @@ namespace osc
 
         class Impl;
     private:
+        friend class GraphicsBackend;
+        friend struct std::hash<Shader>;
+        friend std::ostream& operator<<(std::ostream&, Shader const&);
+        friend std::string to_string(Shader const&);
+
         std::shared_ptr<Impl> m_Impl;
     };
 
@@ -233,9 +235,6 @@ namespace osc
 {
     // a material is a shader + the shader's property values (state)
     class Material final {
-        friend class GraphicsBackend;
-        friend class std::hash<Material>;
-
     public:
         explicit Material(Shader);
         Material(Material const&);
@@ -253,6 +252,10 @@ namespace osc
 
         bool hasProperty(std::string_view propertyName) const;
         bool hasProperty(size_t propertyNameID) const;
+
+        // equivalent to `setVector("Color", ...) etc.
+        glm::vec4 const& getColor() const;
+        void setColor(glm::vec4 const&);
 
         float getFloat(std::string_view propertyName) const;
         float getFloat(size_t propertyNameID) const;
@@ -281,6 +284,11 @@ namespace osc
 
         class Impl;
     private:
+        friend class GraphicsBackend;
+        friend struct std::hash<Material>;
+        friend std::ostream& operator<<(std::ostream&, Material const&);
+        friend std::string to_string(Material const&);
+
         std::shared_ptr<Impl> m_Impl;
     };
 
@@ -304,9 +312,6 @@ namespace osc
     // the reason this is useful is because the graphics backend may optimize drawing
     // meshes that have the same material (e.g. via instanced rendering)
     class MaterialPropertyBlock final {
-        friend class GraphicsBackend;
-        friend class std::hash<MaterialPropertyBlock>;
-
     public:
         MaterialPropertyBlock();
         MaterialPropertyBlock(MaterialPropertyBlock const&);
@@ -325,6 +330,10 @@ namespace osc
 
         bool hasProperty(std::string_view propertyName) const;
         bool hasProperty(size_t propertyNameID) const;
+
+        // equivalent to `setVector("Color", ...) etc.
+        glm::vec4 const& getColor() const;
+        void setColor(glm::vec4 const&);
 
         float getFloat(std::string_view propertyName) const;
         float getFloat(size_t propertyNameID) const;
@@ -353,6 +362,11 @@ namespace osc
 
         class Impl;
     private:
+        friend class GraphicsBackend;
+        friend struct std::hash<MaterialPropertyBlock>;
+        friend std::ostream& operator<<(std::ostream&, MaterialPropertyBlock const&);
+        friend std::string to_string(MaterialPropertyBlock const&);
+
         std::shared_ptr<Impl> m_Impl;
     };
 
@@ -379,9 +393,6 @@ namespace osc
     std::string to_string(CameraProjection);
 
     class CameraNew final {
-        friend class GraphicsBackend;
-        friend class std::hash<CameraNew>;
-
     public:
         CameraNew();  // draws to screen
         explicit CameraNew(Texture2D);  // draws to texture
@@ -410,7 +421,7 @@ namespace osc
 
         // only used if perspective
         float getCameraFOV() const;
-        void setCameraFOV();
+        void setCameraFOV(float);
 
         float getNearClippingPlane() const;
         void setNearClippingPlane(float);
@@ -439,6 +450,11 @@ namespace osc
 
         class Impl;
     private:
+        friend class GraphicsBackend;
+        friend struct std::hash<CameraNew>;
+        friend std::ostream& operator<<(std::ostream&, CameraNew const&);
+        friend std::string to_string(CameraNew const&);
+
         std::shared_ptr<Impl> m_Impl;
     };
 
@@ -456,12 +472,8 @@ namespace std
 
 namespace osc
 {
-    class GraphicsBackend final {
-        static void DrawMesh(Mesh&, Material&, Transform&, CameraNew&, MaterialPropertyBlock const* = nullptr);
-        static void DrawMesh(Mesh&, Material&, glm::mat4 const&, CameraNew&, MaterialPropertyBlock const* = nullptr);
-        static void DrawMesh(Mesh&, glm::vec3 const& pos, glm::quat const& rot, CameraNew&, MaterialPropertyBlock const* = nullptr);
-        static void Blit(Texture2D&);
-        static void Blit(Texture2D&, Rect const& srcRect, Rect const& destRect);
-        static void Blit(Texture2D&, Texture2D&, Rect const& srcRect, Rect const& destRect);
+    class Graphics final {
+    public:
+        static void DrawMesh(Mesh&, glm::vec3 const& pos, CameraNew&, MaterialPropertyBlock const* = nullptr);
     };
 }

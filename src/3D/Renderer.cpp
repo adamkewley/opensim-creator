@@ -1,8 +1,24 @@
 #include "Renderer.hpp"
 
+#include "src/3D/BVH.hpp"
 #include "src/Utils/UID.hpp"
+#include "src/Utils/DefaultConstructOnCopy.hpp"
+#include "src/Assertions.hpp"
 
-#define OSC_NOT_IMPLEMENTED
+#include <nonstd/span.hpp>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <vector>
 
 
 // 3D implementation notes
@@ -27,6 +43,46 @@
 //   little internal changes will happen here as other backends, caching, etc.
 //   are supported
 
+// globals
+namespace
+{
+    static constexpr std::array<char const*, 2> const g_MeshTopographyStrings =
+    {
+        "MeshTopographyNew_Triangles",
+        "MeshTopographyNew_Lines",
+    };
+
+    static constexpr std::array<char const*, 3> const g_TextureWrapModeStrings =
+    {
+        "TextureWrapMode_Repeat",
+        "TextureWrapMode_Clamp",
+        "TextureWrapMode_Mirror",
+    };
+
+    static constexpr std::array<char const*, 3> const g_TextureFilterModeStrings =
+    {
+        "TextureFilterMode_Nearest",
+        "TextureFilterMode_Linear",
+        "TextureFilterMode_Mipmap"
+    };
+
+    static constexpr std::array<char const*, osc::ShaderType_TOTAL> g_ShaderTypeStrings =
+    {
+        "ShaderType_Float",
+        "ShaderType_Int",
+        "ShaderType_Matrix",
+        "ShaderType_Texture",
+        "ShaderType_Vector",
+    };
+
+    static constexpr std::array<char const*, 2> g_CameraProjectionStrings =
+    {
+        "CameraProjection_Perspective",
+        "CameraProjection_Orthographic",
+    };
+}
+
+
 // helpers
 namespace
 {
@@ -44,6 +100,14 @@ namespace
     size_t CombineHashes(size_t a, size_t b)
     {
         return a ^ (b + 0x9e3779b9 + (a<<6) + (a>>2));
+    }
+
+    template<typename T>
+    std::string StreamName(T const& v)
+    {
+        std::stringstream ss;
+        ss << v;
+        return std::move(ss).str();
     }
 }
 
@@ -71,14 +135,6 @@ namespace
 
     static_assert(sizeof(PackedIndex) == sizeof(uint32_t), "double-check that uint32_t is correctly represented on this machine");
     static_assert(alignof(PackedIndex) == alignof(uint32_t), "careful: the union is type-punning between 16- and 32-bit data");
-
-    bool IsAnyValueGreaterThanU16Max(nonstd::span<uint32_t const> vs)
-    {
-        return std::any_of(vs.begin(), vs.end(), [](uint32_t v)
-        {
-            return v > std::numeric_limits<uint16_t>::max();
-        });
-    }
 
     // pack u16 indices into a u16 `PackedIndex` vector
     void PackAsU16(nonstd::span<uint16_t const> vs, std::vector<PackedIndex>& out)
@@ -168,6 +224,17 @@ namespace
 
         return rv;
     }
+
+    std::vector<osc::Rgba32> PackAsRGBA32(nonstd::span<glm::vec4 const> pixels)
+    {
+        std::vector<osc::Rgba32> rv;
+        rv.reserve(pixels.size());
+        for (glm::vec4 const& pixel : pixels)
+        {
+            rv.push_back(osc::Rgba32FromVec4(pixel));
+        }
+        return rv;
+    }
 }
 
 
@@ -202,7 +269,7 @@ public:
             m_Verts.push_back(v);
         }
 
-        m_GpuBuffersOutOfDate = true;
+        m_GpuBuffersUpToDate = false;
         m_VersionCounter++;
         recalculateBounds();
     }
@@ -222,7 +289,7 @@ public:
             m_Normals.push_back(v);
         }
 
-        m_GpuBuffersOutOfDate = true;
+        m_GpuBuffersUpToDate = false;
         m_VersionCounter++;
     }
 
@@ -241,18 +308,18 @@ public:
             m_TexCoords.push_back(t);
         }
 
-        m_GpuBuffersOutOfDate = true;
+        m_GpuBuffersUpToDate = false;
         m_VersionCounter++;
     }
 
     void scaleTexCoords(float factor)
     {
-        for (auto& tc : m_TexCoords)
+        for (glm::vec2& tc : m_TexCoords)
         {
             tc *= factor;
         }
 
-        m_GpuBuffersOutOfDate = true;
+        m_GpuBuffersUpToDate = false;
         m_VersionCounter++;
     }
 
@@ -290,7 +357,7 @@ public:
         }
 
         m_NumIndices = static_cast<int>(vs.size());
-        m_GpuBuffersOutOfDate = true;
+        m_GpuBuffersUpToDate = false;
         m_VersionCounter++;
         recalculateBounds();
     }
@@ -308,25 +375,76 @@ public:
         m_NumIndices = 0;
         m_IndicesData.clear();
         m_AABB = AABB{};
-        m_GpuBuffersOutOfDate = true;
-        // don't reset m_VersionCounter - we don't want to risk hash collisions
-        // TODO: reset any GPU handles
+        m_TriangleBVH.clear();
+        // don't reset version counter (over-hashing is fine, under-hashing is not)
+        m_GpuBuffersUpToDate = false;
     }
 
     void recalculateBounds()
     {
-        // TODO
+        m_AABB = AABBFromVerts(m_Verts.data(), m_Verts.size());
+
+        if (m_Topography == MeshTopographyNew_Triangles)
+        {
+            BVH_BuildFromTriangles(m_TriangleBVH, m_Verts.data(), m_Verts.size());
+        }
+        else
+        {
+            m_TriangleBVH.clear();
+        }
     }
 
     size_t getHash() const
     {
-        size_t idHash = std::hash<UID>{}(m_ID);
-        size_t versionHash = std::hash<int>{}(versionHash);
+        size_t idHash = std::hash<UID>{}(*m_ID);
+        size_t versionHash = std::hash<int>{}(m_VersionCounter);
         return CombineHashes(idHash, versionHash);
     }
 
+    RayCollision getClosestRayTriangleCollisionModelspace(Line const& modelspaceLine) const
+    {
+        if (m_Topography != MeshTopographyNew_Triangles)
+        {
+            return RayCollision{false, 0.0f};
+        }
+
+        BVHCollision coll;
+        bool collided = BVH_GetClosestRayTriangleCollision(m_TriangleBVH, m_Verts.data(), m_Verts.size(), modelspaceLine, &coll);
+
+        if (collided)
+        {
+            return RayCollision{true, coll.distance};
+        }
+        else
+        {
+            return RayCollision{false, 0.0f};
+        }
+    }
+
+    RayCollision getClosestRayTriangleCollisionWorldspace(Line const& worldspaceLine, glm::mat4 const& model2world) const
+    {
+        // do a fast ray-to-AABB collision test
+        AABB modelspaceAABB = getBounds();
+        AABB worldspaceAABB = AABBApplyXform(modelspaceAABB, model2world);
+
+        RayCollision rayAABBCollision = GetRayCollisionAABB(worldspaceLine, worldspaceAABB);
+
+        if (!rayAABBCollision.hit)
+        {
+            return rayAABBCollision;  // missed the AABB, so *definitely* missed the mesh
+        }
+
+        // it hit the AABB, so it *may* have hit a triangle in the mesh
+        //
+        // refine the hittest by doing a slower ray-to-triangle test
+        glm::mat4 world2model = glm::inverse(model2world);
+        Line modelspaceLine = LineApplyXform(worldspaceLine, world2model);
+
+        return getClosestRayTriangleCollisionModelspace(modelspaceLine);
+    }
+
 private:
-    UID m_ID = GenerateID();  // TODO: reset on copy
+    DefaultConstructOnCopy<UID> m_ID;
     MeshTopographyNew m_Topography = MeshTopographyNew_Triangles;
     std::vector<glm::vec3> m_Verts;
     std::vector<glm::vec3> m_Normals;
@@ -335,30 +453,200 @@ private:
     int m_NumIndices = 0;
     std::vector<PackedIndex> m_IndicesData;
     AABB m_AABB = {};
+    BVH m_TriangleBVH;
     int m_VersionCounter = 0;
-    bool m_GpuBuffersOutOfDate = true;  // TODO: reset on copy
+    DefaultConstructOnCopy<bool> m_GpuBuffersUpToDate = false;
 
-    // TODO: backend-dependent data
+    // TODO: GPU data
 };
 
 
 // osc::Texture2D::Impl
 
 class osc::Texture2D::Impl final {
+public:
+    Impl(int width, int height, nonstd::span<Rgba32 const> pixels) :
+        m_Dims{width, height},
+        m_PixelData{pixels.begin(), pixels.end()}
+    {
+        OSC_ASSERT(static_cast<int>(m_PixelData.size()) == width*height);
+    }
 
+    Impl(int width, int height, nonstd::span<glm::vec4 const> pixels) :
+        m_Dims{width, height},
+        m_PixelData{PackAsRGBA32(pixels)}
+    {
+        OSC_ASSERT(static_cast<int>(m_PixelData.size()) == width*height);
+    }
+
+    int getWidth() const
+    {
+        return m_Dims.x;
+    }
+
+    int getHeight() const
+    {
+        return m_Dims.y;
+    }
+
+    float getAspectRatio() const
+    {
+        return VecAspectRatio(m_Dims);
+    }
+
+    TextureWrapMode getWrapMode() const
+    {
+        return getWrapModeU();
+    }
+
+    void setWrapMode(TextureWrapMode wm)
+    {
+        setWrapModeU(wm);
+    }
+
+    TextureWrapMode getWrapModeU() const
+    {
+        return m_WrapModeU;
+    }
+
+    void setWrapModeU(TextureWrapMode wm)
+    {
+        m_WrapModeU = wm;
+        m_VersionCounter++;
+    }
+
+    TextureWrapMode getWrapModeV() const
+    {
+        return m_WrapModeV;
+    }
+
+    void setWrapModeV(TextureWrapMode wm)
+    {
+        m_WrapModeV = wm;
+        m_VersionCounter++;
+    }
+
+    TextureWrapMode getWrapModeW() const
+    {
+        return m_WrapModeW;
+    }
+
+    void setWrapModeW(TextureWrapMode wm)
+    {
+        m_WrapModeW = wm;
+        m_VersionCounter++;
+    }
+
+    TextureFilterMode getFilterMode() const
+    {
+        return m_FilterMode;
+    }
+
+    void setFilterMode(TextureFilterMode fm)
+    {
+        m_FilterMode = fm;
+        m_VersionCounter++;
+    }
+
+    size_t getHash() const
+    {
+        size_t idHash = std::hash<UID>{}(*m_ID);
+        size_t versionHash = std::hash<int>{}(m_VersionCounter);
+        return CombineHashes(idHash, versionHash);
+    }
+
+private:
+    DefaultConstructOnCopy<UID> m_ID;
+    glm::ivec2 m_Dims;
+    std::vector<osc::Rgba32> m_PixelData;
+    TextureWrapMode m_WrapModeU = TextureWrapMode_Repeat;
+    TextureWrapMode m_WrapModeV = TextureWrapMode_Repeat;
+    TextureWrapMode m_WrapModeW = TextureWrapMode_Repeat;
+    TextureFilterMode m_FilterMode = TextureFilterMode_Linear;
+    int m_VersionCounter = 0;
+    DefaultConstructOnCopy<bool> m_GpuBuffersUpToDate = false;
+
+    // TODO: GPU data
 };
 
 
 // osc::Shader::Impl
 
 class osc::Shader::Impl final {
+public:
+    Impl(char const*)
+    {
+        OSC_ASSERT(false && "not yet implemented");
+    }
 
+    std::string const& getName() const;
+
+    int findPropertyIndex(std::string_view propertyName) const;
+
+    int findPropertyIndex(size_t propertyNameID) const;
+
+    int getPropertyCount() const;
+
+    std::string const& getPropertyName(int propertyIndex) const;
+
+    size_t getPropertyNameID(int propertyIndex) const;
+
+    ShaderType getPropertyType(int propertyIndex) const;
+
+    std::ostream& operator<<(std::ostream o) const;
+
+    std::string to_string() const;
+
+    size_t getHash() const;
+
+private:
+    // TODO: needs gl::Program
+    // TODO: needs definition of where the attrs are
 };
 
 
 // osc::Material::Impl
 
 class osc::Material::Impl final {
+public:
+    Impl(Shader shader) : m_Shader{std::move(shader)}
+    {
+    }
+
+    Shader const& getShader() const;
+
+    bool hasProperty(std::string_view propertyName) const;
+    bool hasProperty(size_t propertyNameID) const;
+
+    float getFloat(std::string_view propertyName) const;
+    float getFloat(size_t propertyNameID) const;
+    void setFloat(std::string_view propertyName, float);
+    void setFloat(size_t propertyNameID, float);
+
+    int getInt(std::string_view propertyName) const;
+    int getInt(size_t propertyNameID) const;
+    void setInt(std::string_view propertyName, int);
+    void setInt(size_t propertyNameID, int);
+
+    Texture2D const& getTexture(std::string_view propertyName) const;
+    Texture2D const& getTexture(size_t propertyNameID) const;
+    void setTexture(std::string_view propertyName, Texture2D);
+    void setTexture(size_t propertyNameID, Texture2D);
+
+    glm::vec4 const& getVector(std::string_view propertyName) const;
+    glm::vec4 const& getVector(size_t propertyNameID) const;
+    void setVector(std::string_view propertyName, glm::vec4 const&);
+    void setVector(size_t propertyNameID, glm::vec4 const&);
+
+    glm::mat4 const& getMatrix(std::string_view propertyName) const;
+    glm::mat4 const& getMatrix(size_t propertyNameID) const;
+    void setMatrix(std::string_view propertyName, glm::mat4 const&);
+    void setMatrix(size_t propertyNameID, glm::mat4 const&);
+
+    size_t getHash() const;
+
+private:
+    Shader m_Shader;
 
 };
 
@@ -366,6 +654,41 @@ class osc::Material::Impl final {
 // osc::MaterialPropertyBlock::Impl
 
 class osc::MaterialPropertyBlock::Impl final {
+public:
+    void clear();
+    bool isEmpty() const;
+
+    bool hasProperty(std::string_view propertyName) const;
+    bool hasProperty(size_t propertyNameID) const;
+
+    float getFloat(std::string_view propertyName) const;
+    float getFloat(size_t propertyNameID) const;
+    void setFloat(std::string_view propertyName, float);
+    void setFloat(size_t propertyNameID, float);
+
+    int getInt(std::string_view propertyName) const;
+    int getInt(size_t propertyNameID) const;
+    void setInt(std::string_view propertyName, int);
+    void setInt(size_t propertyNameID, int);
+
+    Texture2D const& getTexture(std::string_view propertyName) const;
+    Texture2D const& getTexture(size_t propertyNameID) const;
+    void setTexture(std::string_view propertyName, Texture2D);
+    void setTexture(size_t propertyNameID, Texture2D);
+
+    glm::vec4 const& getVector(std::string_view propertyName) const;
+    glm::vec4 const& getVector(size_t propertyNameID) const;
+    void setVector(std::string_view propertyName, glm::vec4 const&);
+    void setVector(size_t propertyNameID, glm::vec4 const&);
+
+    glm::mat4 const& getMatrix(std::string_view propertyName) const;
+    glm::mat4 const& getMatrix(size_t propertyNameID) const;
+    void setMatrix(std::string_view propertyName, glm::mat4 const&);
+    void setMatrix(size_t propertyNameID, glm::mat4 const&);
+
+    size_t getHash() const;
+private:
+    // TODO
 
 };
 
@@ -373,7 +696,54 @@ class osc::MaterialPropertyBlock::Impl final {
 // osc::CameraNew::Impl
 
 class osc::CameraNew::Impl final {
+public:
+    Impl(Texture2D);
 
+    glm::vec4 const& getBackgroundColor() const;
+    void setBackgroundColor(glm::vec4 const&);
+
+    CameraProjection getCameraProjection() const;
+    void setCameraProjection(CameraProjection);
+
+    // only used if orthographic
+    //
+    // e.g. https://docs.unity3d.com/ScriptReference/Camera-orthographicSize.html
+    float getOrthographicSize() const;
+    void setOrthographicSize(glm::vec2);
+
+    // only used if perspective
+    float getCameraFOV() const;
+    void setCameraFOV(float);
+
+    float getNearClippingPlane() const;
+    void setNearClippingPlane(float);
+
+    float getFarClippingPlane() const;
+    void setFarClippingPlane(float);
+
+    std::optional<Texture2D> getTexture() const;
+    void setTexture(Texture2D);
+    void setTexture();  // resets to drawing to screen
+
+    int getPixelWidth() const;
+    int getPixelHeight() const;
+    float getAspectRatio() const;
+
+    std::optional<Rect> getScissorRect() const;
+    void setScissorRect(Rect const&);  // rect is in pixel space?
+    void setScissorRect();  // resets to having no scissor
+
+    glm::mat4 const& getCameraToWorldMatrix() const;
+
+    // flushes any rendering commands that were queued against this camera
+    //
+    // after this call completes, callers can then use the output texture/screen
+    void render();
+
+    size_t getHash() const;
+
+private:
+    // TODO
 };
 
 
@@ -383,14 +753,14 @@ class osc::CameraNew::Impl final {
 
 // osc::MeshTopographyNew
 
-std::ostream& osc::operator<<(std::ostream&, MeshTopographyNew)
+std::ostream& osc::operator<<(std::ostream& o, MeshTopographyNew t)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << g_MeshTopographyStrings.at(static_cast<size_t>(t));
 }
 
-std::string osc::to_string(MeshTopographyNew)
+std::string osc::to_string(MeshTopographyNew t)
 {
-    OSC_NOT_IMPLEMENTED
+    return std::string{g_MeshTopographyStrings.at(static_cast<size_t>(t))};
 }
 
 
@@ -431,7 +801,7 @@ osc::MeshTopographyNew osc::Mesh::getTopography() const
 void osc::Mesh::setTopography(MeshTopographyNew mt)
 {
     DoCopyOnWrite(m_Impl);
-    m_Impl->setTopography(mt);
+    m_Impl->setTopography(std::move(mt));
 }
 
 nonstd::span<glm::vec3 const> osc::Mesh::getVerts() const
@@ -442,7 +812,7 @@ nonstd::span<glm::vec3 const> osc::Mesh::getVerts() const
 void osc::Mesh::setVerts(nonstd::span<const glm::vec3> vs)
 {
     DoCopyOnWrite(m_Impl);
-    m_Impl->setVerts(vs);
+    m_Impl->setVerts(std::move(vs));
 }
 
 nonstd::span<glm::vec3 const> osc::Mesh::getNormals() const
@@ -453,7 +823,7 @@ nonstd::span<glm::vec3 const> osc::Mesh::getNormals() const
 void osc::Mesh::setNormals(nonstd::span<const glm::vec3> vs)
 {
     DoCopyOnWrite(m_Impl);
-    m_Impl->setNormals(vs);
+    m_Impl->setNormals(std::move(vs));
 }
 
 nonstd::span<glm::vec2 const> osc::Mesh::getTexCoords() const
@@ -464,13 +834,13 @@ nonstd::span<glm::vec2 const> osc::Mesh::getTexCoords() const
 void osc::Mesh::setTexCoords(nonstd::span<const glm::vec2> tc)
 {
     DoCopyOnWrite(m_Impl);
-    m_Impl->setTexCoords(tc);
+    m_Impl->setTexCoords(std::move(tc));
 }
 
 void osc::Mesh::scaleTexCoords(float factor)
 {
     DoCopyOnWrite(m_Impl);
-    m_Impl->scaleTexCoords(factor);
+    m_Impl->scaleTexCoords(std::move(factor));
 }
 
 int osc::Mesh::getNumIndices() const
@@ -486,18 +856,28 @@ std::vector<uint32_t> osc::Mesh::getIndices() const
 void osc::Mesh::setIndices(nonstd::span<const uint16_t> vs)
 {
     DoCopyOnWrite(m_Impl);
-    m_Impl->setIndices(vs);
+    m_Impl->setIndices(std::move(vs));
 }
 
 void osc::Mesh::setIndices(nonstd::span<const uint32_t> vs)
 {
     DoCopyOnWrite(m_Impl);
-    m_Impl->setIndices(vs);
+    m_Impl->setIndices(std::move(vs));
 }
 
 osc::AABB const& osc::Mesh::getBounds() const
 {
     return m_Impl->getBounds();
+}
+
+osc::RayCollision osc::Mesh::getClosestRayTriangleCollisionModelspace(Line const& modelspaceLine) const
+{
+    return m_Impl->getClosestRayTriangleCollisionModelspace(modelspaceLine);
+}
+
+osc::RayCollision osc::Mesh::getClosestRayTriangleCollisionWorldspace(Line const& worldspaceLine, glm::mat4 const& model2world) const
+{
+    return m_Impl->getClosestRayTriangleCollisionWorldspace(worldspaceLine, model2world);
 }
 
 void osc::Mesh::clear()
@@ -506,14 +886,14 @@ void osc::Mesh::clear()
     m_Impl->clear();
 }
 
-std::ostream& osc::operator<<(std::ostream&, Mesh const&)
+std::ostream& osc::operator<<(std::ostream& o, Mesh const& m)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << "Mesh(nverts = " << m.m_Impl->getVerts().size() << ", nindices = " << m.m_Impl->getIndices().size() << ')';
 }
 
-std::string osc::to_string(Mesh const&)
+std::string osc::to_string(Mesh const& m)
 {
-    OSC_NOT_IMPLEMENTED
+    return StreamName(m);
 }
 
 size_t std::hash<osc::Mesh>::operator()(osc::Mesh const& mesh) const
@@ -524,40 +904,40 @@ size_t std::hash<osc::Mesh>::operator()(osc::Mesh const& mesh) const
 
 // osc::TextureWrapMode
 
-std::ostream& osc::operator<<(std::ostream&, osc::TextureWrapMode)
+std::ostream& osc::operator<<(std::ostream& o, osc::TextureWrapMode wm)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << g_TextureWrapModeStrings.at(static_cast<size_t>(wm));
 }
 
-std::string osc::to_string(TextureWrapMode)
+std::string osc::to_string(TextureWrapMode wm)
 {
-    OSC_NOT_IMPLEMENTED
+    return std::string{g_TextureWrapModeStrings.at(static_cast<size_t>(wm))};
 }
 
 
 // osc::TextureFilterMode
 
-std::ostream& osc::operator<<(std::ostream&, osc::TextureFilterMode)
+std::ostream& osc::operator<<(std::ostream& o, osc::TextureFilterMode fm)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << g_TextureFilterModeStrings.at(static_cast<size_t>(fm));
 }
 
-std::string osc::to_string(TextureFilterMode)
+std::string osc::to_string(TextureFilterMode fm)
 {
-    OSC_NOT_IMPLEMENTED
+    return std::string{g_TextureFilterModeStrings.at(static_cast<size_t>(fm))};
 }
 
 
 // osc::Texture2D
 
-osc::Texture2D::Texture2D(int width, int height, nonstd::span<Rgba32 const>)
+osc::Texture2D::Texture2D(int width, int height, nonstd::span<Rgba32 const> pixels) :
+    m_Impl{std::make_shared<Impl>(std::move(width), std::move(height), std::move(pixels))}
 {
-    OSC_NOT_IMPLEMENTED
 }
 
-osc::Texture2D::Texture2D(int width, int height, nonstd::span<glm::vec4 const>)
+osc::Texture2D::Texture2D(int width, int height, nonstd::span<glm::vec4 const> pixels) :
+    m_Impl{std::make_shared<Impl>(std::move(width), std::move(height), std::move(pixels))}
 {
-    OSC_NOT_IMPLEMENTED
 }
 
 osc::Texture2D::Texture2D(Texture2D const&) = default;
@@ -570,138 +950,143 @@ osc::Texture2D& osc::Texture2D::operator=(Texture2D const&) = default;
 
 osc::Texture2D& osc::Texture2D::operator=(Texture2D&&) noexcept = default;
 
-bool osc::Texture2D::operator==(Texture2D const&) const
+bool osc::Texture2D::operator==(Texture2D const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl == o.m_Impl;
 }
 
-bool osc::Texture2D::operator!=(Texture2D const&) const
+bool osc::Texture2D::operator!=(Texture2D const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl != o.m_Impl;
 }
 
-bool osc::Texture2D::operator<(Texture2D const&) const
+bool osc::Texture2D::operator<(Texture2D const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl < o.m_Impl;
 }
 
 int osc::Texture2D::getWidth() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getWidth();
 }
 
 int osc::Texture2D::getHeight() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getHeight();
 }
 
 float osc::Texture2D::getAspectRatio() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getAspectRatio();
 }
 
 osc::TextureWrapMode osc::Texture2D::getWrapMode() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getWrapMode();
 }
 
-void osc::Texture2D::setWrapMode(TextureWrapMode)
+void osc::Texture2D::setWrapMode(TextureWrapMode wm)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setWrapMode(std::move(wm));
 }
 
 osc::TextureWrapMode osc::Texture2D::getWrapModeU() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getWrapModeU();
 }
 
-void osc::Texture2D::setWrapModeU(TextureWrapMode)
+void osc::Texture2D::setWrapModeU(TextureWrapMode wm)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setWrapModeU(std::move(wm));
 }
 
 osc::TextureWrapMode osc::Texture2D::getWrapModeV() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getWrapModeV();
 }
 
-void osc::Texture2D::setWrapModeV(TextureWrapMode)
+void osc::Texture2D::setWrapModeV(TextureWrapMode wm)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setWrapModeV(std::move(wm));
 }
 
 osc::TextureWrapMode osc::Texture2D::getWrapModeW() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getWrapModeW();
 }
 
-void osc::Texture2D::setWrapModeW(TextureWrapMode)
+void osc::Texture2D::setWrapModeW(TextureWrapMode wm)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setWrapModeW(std::move(wm));
 }
 
 osc::TextureFilterMode osc::Texture2D::getFilterMode() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getFilterMode();
 }
 
-void osc::Texture2D::setFilterMode(TextureFilterMode)
+void osc::Texture2D::setFilterMode(TextureFilterMode fm)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setFilterMode(std::move(fm));
 }
 
-void* osc::Texture2D::getRawHandle()
+std::ostream& osc::operator<<(std::ostream& o, Texture2D const& t)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << "Texture2D(width = " << t.getWidth() << ", height = " << t.getHeight() << ')';
 }
 
-std::ostream& osc::operator<<(std::ostream&, Texture2D const&)
+std::string osc::to_string(Texture2D const& t)
 {
-    OSC_NOT_IMPLEMENTED
+    return StreamName(t);
 }
 
-std::string osc::to_string(Texture2D const&)
+size_t std::hash<osc::Texture2D>::operator()(osc::Texture2D const& t) const
 {
-    OSC_NOT_IMPLEMENTED
-}
-
-size_t std::hash<osc::Texture2D>::operator()(osc::Texture2D const&)
-{
-    OSC_NOT_IMPLEMENTED
+    return t.m_Impl->getHash();
 }
 
 
 // osc::ShaderType
 
-std::ostream& osc::operator<<(std::ostream&, ShaderType)
+std::ostream& osc::operator<<(std::ostream& o, ShaderType st)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << g_ShaderTypeStrings.at(static_cast<size_t>(st));
 }
 
-std::string osc::to_string(ShaderType)
+std::string osc::to_string(ShaderType st)
 {
-    OSC_NOT_IMPLEMENTED
+    return std::string{g_ShaderTypeStrings.at(static_cast<size_t>(st))};
 }
 
 
 // shader IDs
 
-size_t osc::ConvertPropertyNameToNameID(std::string_view)
+size_t osc::ConvertPropertyNameToNameID(std::string_view sv)
 {
-    OSC_NOT_IMPLEMENTED
+    static std::string g_Buffer;
+    static std::mutex g_BufferMutex;
+
+    std::lock_guard l{g_BufferMutex};
+    g_Buffer = std::move(sv);
+
+    return std::hash<std::string>{}(g_Buffer);
 }
 
 
 // osc::Shader
 
-osc::Shader::Shader(char const*)
+osc::Shader osc::Shader::compile(char const* src)
 {
-    OSC_NOT_IMPLEMENTED
+    return Shader{src};
 }
 
-osc::Shader osc::Shader::compile(const char *)
+osc::Shader::Shader(char const* src) : m_Impl{std::make_shared<Impl>(src)}
 {
-    OSC_NOT_IMPLEMENTED
 }
 
 osc::Shader::Shader(Shader const&) = default;
@@ -714,77 +1099,76 @@ osc::Shader& osc::Shader::operator=(Shader const&) = default;
 
 osc::Shader& osc::Shader::operator=(Shader&&) noexcept = default;
 
-bool osc::Shader::operator==(Shader const&) const
+bool osc::Shader::operator==(Shader const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl == o.m_Impl;
 }
 
-bool osc::Shader::operator!=(Shader const&) const
+bool osc::Shader::operator!=(Shader const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl != o.m_Impl;
 }
 
-bool osc::Shader::operator<(Shader const&) const
+bool osc::Shader::operator<(Shader const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl < o.m_Impl;
 }
 
 std::string const& osc::Shader::getName() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getName();
 }
 
 int osc::Shader::findPropertyIndex(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->findPropertyIndex(std::move(propertyName));
 }
 
 int osc::Shader::findPropertyIndex(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->findPropertyIndex(std::move(propertyNameID));
 }
 
 int osc::Shader::getPropertyCount() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getPropertyCount();
 }
 
 std::string const& osc::Shader::getPropertyName(int propertyIndex) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getPropertyName(std::move(propertyIndex));
 }
 
 size_t osc::Shader::getPropertyNameID(int propertyIndex) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getPropertyNameID(std::move(propertyIndex));
 }
 
 osc::ShaderType osc::Shader::getPropertyType(int propertyIndex) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getPropertyType(std::move(propertyIndex));
 }
 
-std::ostream& osc::operator<<(std::ostream&, Shader const&)
+std::ostream& osc::operator<<(std::ostream& o, Shader const& s)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << "Shader(name = " << s.getName() << ')';
 }
 
-std::string osc::to_string(Shader const&)
+std::string osc::to_string(Shader const& s)
 {
-    OSC_NOT_IMPLEMENTED
+    return StreamName(s);
 }
 
-size_t std::hash<osc::Shader>::operator()(osc::Shader const&) const
+size_t std::hash<osc::Shader>::operator()(osc::Shader const& s) const
 {
-    OSC_NOT_IMPLEMENTED
+    return s.m_Impl->getHash();
 }
 
 
 // osc::Material
 
-osc::Material::Material(Shader)
+osc::Material::Material(Shader shader) : m_Impl{std::make_shared<Impl>(std::move(shader))}
 {
-    OSC_NOT_IMPLEMENTED
 }
 
 osc::Material::Material(Material const&) = default;
@@ -797,559 +1181,554 @@ osc::Material& osc::Material::operator=(Material const&) = default;
 
 osc::Material& osc::Material::operator=(Material&&) noexcept = default;
 
-bool osc::Material::operator==(Material const&) const
+bool osc::Material::operator==(Material const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl == o.m_Impl;
 }
 
-bool osc::Material::operator!=(Material const&) const
+bool osc::Material::operator!=(Material const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl != o.m_Impl;
 }
 
-bool osc::Material::operator<(Material const&) const
+bool osc::Material::operator<(Material const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl < o.m_Impl;
 }
 
 osc::Shader const& osc::Material::getShader() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getShader();
 }
 
 bool osc::Material::hasProperty(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->hasProperty(std::move(propertyName));
 }
 
 bool osc::Material::hasProperty(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->hasProperty(std::move(propertyNameID));
+}
+
+glm::vec4 const& osc::Material::getColor() const
+{
+    return m_Impl->getVector("Color");
+}
+
+void osc::Material::setColor(glm::vec4 const& v)
+{
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setVector("Color", v);
 }
 
 float osc::Material::getFloat(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getFloat(std::move(propertyName));
 }
 
 float osc::Material::getFloat(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getFloat(std::move(propertyNameID));
 }
 
-void osc::Material::setFloat(std::string_view propertyName, float)
+void osc::Material::setFloat(std::string_view propertyName, float v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setFloat(std::move(propertyName), std::move(v));
 }
 
-void osc::Material::setFloat(size_t propertyNameID, float)
+void osc::Material::setFloat(size_t propertyNameID, float v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setFloat(std::move(propertyNameID), std::move(v));
 }
 
 int osc::Material::getInt(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getInt(std::move(propertyName));
 }
 
 int osc::Material::getInt(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getInt(std::move(propertyNameID));
 }
 
-void osc::Material::setInt(std::string_view propertyName, int)
+void osc::Material::setInt(std::string_view propertyName, int v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setInt(std::move(propertyName), std::move(v));
 }
 
-void osc::Material::setInt(size_t propertyNameID, int)
+void osc::Material::setInt(size_t propertyNameID, int v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setInt(std::move(propertyNameID), std::move(v));
 }
 
 osc::Texture2D const& osc::Material::getTexture(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getTexture(std::move(propertyName));
 }
 
 osc::Texture2D const& osc::Material::getTexture(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getTexture(std::move(propertyNameID));
 }
 
-void osc::Material::setTexture(std::string_view propertyName, Texture2D)
+void osc::Material::setTexture(std::string_view propertyName, Texture2D t)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setTexture(std::move(propertyName), std::move(t));
 }
 
-void osc::Material::setTexture(size_t propertyNameID, Texture2D)
+void osc::Material::setTexture(size_t propertyNameID, Texture2D t)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setTexture(std::move(propertyNameID), std::move(t));
 }
 
 glm::vec4 const& osc::Material::getVector(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getVector(std::move(propertyName));
 }
 
 glm::vec4 const& osc::Material::getVector(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getVector(std::move(propertyNameID));
 }
 
-void osc::Material::setVector(std::string_view propertyName, glm::vec4 const&)
+void osc::Material::setVector(std::string_view propertyName, glm::vec4 const& v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setVector(std::move(propertyName), v);
 }
 
-void osc::Material::setVector(size_t propertyNameID, glm::vec4 const&)
+void osc::Material::setVector(size_t propertyNameID, glm::vec4 const& v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setVector(std::move(propertyNameID), v);
 }
 
 glm::mat4 const& osc::Material::getMatrix(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getMatrix(std::move(propertyName));
 }
 
 glm::mat4 const& osc::Material::getMatrix(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getMatrix(std::move(propertyNameID));
 }
 
-void osc::Material::setMatrix(std::string_view propertyName, glm::mat4 const&)
+void osc::Material::setMatrix(std::string_view propertyName, glm::mat4 const& m)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setMatrix(std::move(propertyName), m);
 }
 
-void osc::Material::setMatrix(size_t propertyNameID, glm::mat4 const&)
+void osc::Material::setMatrix(size_t propertyNameID, glm::mat4 const& m)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setMatrix(std::move(propertyNameID), m);
 }
 
-std::ostream& osc::operator<<(std::ostream&, Material const&)
+std::ostream& osc::operator<<(std::ostream& o, Material const&)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << "Material()";
 }
 
-std::string osc::to_string(Material const&)
+std::string osc::to_string(Material const& mat)
 {
-    OSC_NOT_IMPLEMENTED
+    return StreamName(mat);
 }
 
-size_t std::hash<osc::Material>::operator()(osc::Material const&) const
+size_t std::hash<osc::Material>::operator()(osc::Material const& mat) const
 {
-    OSC_NOT_IMPLEMENTED
+    return mat.m_Impl->getHash();
 }
 
 
 // osc::MaterialPropertyBlock
 
-osc::MaterialPropertyBlock::MaterialPropertyBlock()
+osc::MaterialPropertyBlock::MaterialPropertyBlock() : m_Impl{std::make_shared<Impl>()}
 {
-    OSC_NOT_IMPLEMENTED
 }
 
-osc::MaterialPropertyBlock::MaterialPropertyBlock(MaterialPropertyBlock const&)
+osc::MaterialPropertyBlock::MaterialPropertyBlock(MaterialPropertyBlock const&) = default;
+
+osc::MaterialPropertyBlock::MaterialPropertyBlock(MaterialPropertyBlock&&) noexcept = default;
+
+osc::MaterialPropertyBlock::~MaterialPropertyBlock() noexcept = default;
+
+osc::MaterialPropertyBlock& osc::MaterialPropertyBlock::operator=(MaterialPropertyBlock const&) = default;
+
+osc::MaterialPropertyBlock& osc::MaterialPropertyBlock::operator=(MaterialPropertyBlock&&) noexcept = default;
+
+bool osc::MaterialPropertyBlock::operator==(MaterialPropertyBlock const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl == o.m_Impl;
 }
 
-osc::MaterialPropertyBlock::MaterialPropertyBlock(MaterialPropertyBlock&&) noexcept
+bool osc::MaterialPropertyBlock::operator!=(MaterialPropertyBlock const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl != o.m_Impl;
 }
 
-osc::MaterialPropertyBlock::~MaterialPropertyBlock() noexcept
+bool osc::MaterialPropertyBlock::operator<(MaterialPropertyBlock const& o) const
 {
-    OSC_NOT_IMPLEMENTED
-}
-
-osc::MaterialPropertyBlock& osc::MaterialPropertyBlock::operator=(MaterialPropertyBlock const&)
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-osc::MaterialPropertyBlock& osc::MaterialPropertyBlock::operator=(MaterialPropertyBlock&&) noexcept
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-bool osc::MaterialPropertyBlock::operator==(MaterialPropertyBlock const&) const
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-bool osc::MaterialPropertyBlock::operator!=(MaterialPropertyBlock const&) const
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-bool osc::MaterialPropertyBlock::operator<(MaterialPropertyBlock const&) const
-{
-    OSC_NOT_IMPLEMENTED
+    return m_Impl < o.m_Impl;
 }
 
 void osc::MaterialPropertyBlock::clear()
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->clear();
 }
 
 bool osc::MaterialPropertyBlock::isEmpty() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->isEmpty();
 }
 
 bool osc::MaterialPropertyBlock::hasProperty(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->hasProperty(std::move(propertyName));
 }
 
 bool osc::MaterialPropertyBlock::hasProperty(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->hasProperty(std::move(propertyNameID));
+}
+
+glm::vec4 const& osc::MaterialPropertyBlock::getColor() const
+{
+    return m_Impl->getVector("Color");
+}
+
+void osc::MaterialPropertyBlock::setColor(glm::vec4 const& c)
+{
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setVector("Color", c);
 }
 
 float osc::MaterialPropertyBlock::getFloat(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getFloat(std::move(propertyName));
 }
 
 float osc::MaterialPropertyBlock::getFloat(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getFloat(std::move(propertyNameID));
 }
 
-void osc::MaterialPropertyBlock::setFloat(std::string_view propertyName, float)
+void osc::MaterialPropertyBlock::setFloat(std::string_view propertyName, float v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setFloat(std::move(propertyName), std::move(v));
 }
 
-void osc::MaterialPropertyBlock::setFloat(size_t propertyNameID, float)
+void osc::MaterialPropertyBlock::setFloat(size_t propertyNameID, float v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setFloat(std::move(propertyNameID), std::move(v));
 }
 
 int osc::MaterialPropertyBlock::getInt(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getInt(std::move(propertyName));
 }
 
 int osc::MaterialPropertyBlock::getInt(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getInt(std::move(propertyNameID));
 }
 
-void osc::MaterialPropertyBlock::setInt(std::string_view propertyName, int)
+void osc::MaterialPropertyBlock::setInt(std::string_view propertyName, int v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setInt(std::move(propertyName), std::move(v));
 }
 
-void osc::MaterialPropertyBlock::setInt(size_t propertyNameID, int)
+void osc::MaterialPropertyBlock::setInt(size_t propertyNameID, int v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setInt(std::move(propertyNameID), std::move(v));
 }
 
 osc::Texture2D const& osc::MaterialPropertyBlock::getTexture(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getTexture(std::move(propertyName));
 }
 
 osc::Texture2D const& osc::MaterialPropertyBlock::getTexture(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getTexture(std::move(propertyNameID));
 }
 
-void osc::MaterialPropertyBlock::setTexture(std::string_view propertyName, Texture2D)
+void osc::MaterialPropertyBlock::setTexture(std::string_view propertyName, Texture2D t)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setTexture(std::move(propertyName), std::move(t));
 }
 
-void osc::MaterialPropertyBlock::setTexture(size_t propertyNameID, Texture2D)
+void osc::MaterialPropertyBlock::setTexture(size_t propertyNameID, Texture2D t)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setTexture(std::move(propertyNameID), std::move(t));
 }
 
 glm::vec4 const& osc::MaterialPropertyBlock::getVector(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getVector(std::move(propertyName));
 }
 
 glm::vec4 const& osc::MaterialPropertyBlock::getVector(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getVector(std::move(propertyNameID));
 }
 
-void osc::MaterialPropertyBlock::setVector(std::string_view propertyName, glm::vec4 const&)
+void osc::MaterialPropertyBlock::setVector(std::string_view propertyName, glm::vec4 const& v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setVector(propertyName, v);
 }
 
-void osc::MaterialPropertyBlock::setVector(size_t propertyNameID, glm::vec4 const&)
+void osc::MaterialPropertyBlock::setVector(size_t propertyNameID, glm::vec4 const& v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setVector(std::move(propertyNameID), v);
 }
 
 glm::mat4 const& osc::MaterialPropertyBlock::getMatrix(std::string_view propertyName) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getMatrix(std::move(propertyName));
 }
 
 glm::mat4 const& osc::MaterialPropertyBlock::getMatrix(size_t propertyNameID) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getMatrix(std::move(propertyNameID));
 }
 
-void osc::MaterialPropertyBlock::setMatrix(std::string_view propertyName, glm::mat4 const&)
+void osc::MaterialPropertyBlock::setMatrix(std::string_view propertyName, glm::mat4 const& v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setMatrix(std::move(propertyName), v);
 }
 
-void osc::MaterialPropertyBlock::setMatrix(size_t propertyNameID, glm::mat4 const&)
+void osc::MaterialPropertyBlock::setMatrix(size_t propertyNameID, glm::mat4 const& v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setMatrix(std::move(propertyNameID), v);
 }
 
-std::ostream& osc::operator<<(std::ostream&, MaterialPropertyBlock const&)
+std::ostream& osc::operator<<(std::ostream& o, MaterialPropertyBlock const&)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << "MaterialPropertyBlock()";
 }
 
-std::string osc::to_string(MaterialPropertyBlock const&)
+std::string osc::to_string(MaterialPropertyBlock const& m)
 {
-    OSC_NOT_IMPLEMENTED
+    return StreamName(m);
 }
 
-size_t std::hash<osc::MaterialPropertyBlock>::operator()(osc::MaterialPropertyBlock const&) const
+size_t std::hash<osc::MaterialPropertyBlock>::operator()(osc::MaterialPropertyBlock const& m) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m.m_Impl->getHash();
 }
 
 
 // osc::CameraProjection
 
-std::ostream& osc::operator<<(std::ostream&, CameraProjection)
+std::ostream& osc::operator<<(std::ostream& o, CameraProjection p)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << g_CameraProjectionStrings.at(static_cast<size_t>(p));
 }
 
-std::string osc::to_string(CameraProjection)
+std::string osc::to_string(CameraProjection p)
 {
-    OSC_NOT_IMPLEMENTED
+    return std::string{g_CameraProjectionStrings.at(static_cast<size_t>(p))};
 }
 
 
 // osc::CameraNew
 
-osc::CameraNew::CameraNew()
+osc::CameraNew::CameraNew(Texture2D t) :
+    m_Impl{std::make_shared<Impl>(std::move(t))}
 {
-    OSC_NOT_IMPLEMENTED
 }
 
-osc::CameraNew::CameraNew(Texture2D)
+osc::CameraNew::CameraNew(CameraNew const&) = default;
+
+osc::CameraNew::CameraNew(CameraNew&&) noexcept = default;
+
+osc::CameraNew::~CameraNew() noexcept = default;
+
+osc::CameraNew& osc::CameraNew::operator=(CameraNew const&) = default;
+
+osc::CameraNew& osc::CameraNew::operator=(CameraNew&&) noexcept = default;
+
+bool osc::CameraNew::operator==(CameraNew const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl == o.m_Impl;
 }
 
-osc::CameraNew::CameraNew(CameraNew const&)
+bool osc::CameraNew::operator!=(CameraNew const& o) const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl != o.m_Impl;
 }
 
-osc::CameraNew::CameraNew(CameraNew&&) noexcept
+bool osc::CameraNew::operator<(CameraNew const& o) const
 {
-    OSC_NOT_IMPLEMENTED
-}
-
-osc::CameraNew::~CameraNew() noexcept
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-osc::CameraNew& osc::CameraNew::operator=(CameraNew const&)
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-osc::CameraNew& osc::CameraNew::operator=(CameraNew&&) noexcept
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-bool osc::CameraNew::operator==(CameraNew const&) const
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-bool osc::CameraNew::operator!=(CameraNew const&) const
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-bool osc::CameraNew::operator<(CameraNew const&) const
-{
-    OSC_NOT_IMPLEMENTED
+    return m_Impl < o.m_Impl;
 }
 
 glm::vec4 const& osc::CameraNew::getBackgroundColor() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getBackgroundColor();
 }
 
-void osc::CameraNew::setBackgroundColor(glm::vec4 const&)
+void osc::CameraNew::setBackgroundColor(glm::vec4 const& v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setBackgroundColor(v);
 }
 
 osc::CameraProjection osc::CameraNew::getCameraProjection() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getCameraProjection();
 }
 
-void osc::CameraNew::setCameraProjection(CameraProjection)
+void osc::CameraNew::setCameraProjection(CameraProjection p)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setCameraProjection(std::move(p));
 }
 
 float osc::CameraNew::getOrthographicSize() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getOrthographicSize();
 }
 
-void osc::CameraNew::setOrthographicSize(glm::vec2)
+void osc::CameraNew::setOrthographicSize(glm::vec2 v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setOrthographicSize(std::move(v));
 }
 
 float osc::CameraNew::getCameraFOV() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getCameraFOV();
 }
 
-void osc::CameraNew::setCameraFOV()
+void osc::CameraNew::setCameraFOV(float v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setCameraFOV(std::move(v));
 }
 
 float osc::CameraNew::getNearClippingPlane() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getNearClippingPlane();
 }
 
-void osc::CameraNew::setNearClippingPlane(float)
+void osc::CameraNew::setNearClippingPlane(float v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setNearClippingPlane(std::move(v));
 }
 
 float osc::CameraNew::getFarClippingPlane() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getFarClippingPlane();
 }
 
-void osc::CameraNew::setFarClippingPlane(float)
+void osc::CameraNew::setFarClippingPlane(float v)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setFarClippingPlane(std::move(v));
 }
 
 std::optional<osc::Texture2D> osc::CameraNew::getTexture() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getTexture();
 }
 
-void osc::CameraNew::setTexture(Texture2D)
+void osc::CameraNew::setTexture(Texture2D t)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setTexture(std::move(t));
 }
 
 void osc::CameraNew::setTexture()
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setTexture();
 }
 
 int osc::CameraNew::getPixelWidth() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getPixelWidth();
 }
 
 int osc::CameraNew::getPixelHeight() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getPixelHeight();
 }
 
 float osc::CameraNew::getAspectRatio() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getAspectRatio();
 }
 
 std::optional<osc::Rect> osc::CameraNew::getScissorRect() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getScissorRect();
 }
 
-void osc::CameraNew::setScissorRect(Rect const&)
+void osc::CameraNew::setScissorRect(Rect const& r)
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setScissorRect(r);
 }
 
 void osc::CameraNew::setScissorRect()
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->setScissorRect();
 }
 
 glm::mat4 const& osc::CameraNew::getCameraToWorldMatrix() const
 {
-    OSC_NOT_IMPLEMENTED
+    return m_Impl->getCameraToWorldMatrix();
 }
 
 void osc::CameraNew::render()
 {
-    OSC_NOT_IMPLEMENTED
+    DoCopyOnWrite(m_Impl);
+    m_Impl->render();
 }
 
-std::ostream& osc::operator<<(std::ostream&, CameraNew const&)
+std::ostream& osc::operator<<(std::ostream& o, CameraNew const&)
 {
-    OSC_NOT_IMPLEMENTED
+    return o << "CameraNew()";
 }
 
-std::string osc::to_string(CameraNew const&)
+std::string osc::to_string(CameraNew const& c)
 {
-    OSC_NOT_IMPLEMENTED
+    return StreamName(c);
 }
 
-size_t std::hash<osc::CameraNew>::operator()(osc::CameraNew const&) const
+size_t std::hash<osc::CameraNew>::operator()(osc::CameraNew const& c) const
 {
-    OSC_NOT_IMPLEMENTED
+    return c.m_Impl->getHash();
 }
 
 
 // osc::GraphicsBackend
 
-void osc::GraphicsBackend::DrawMesh(Mesh&, Material&, Transform&, CameraNew&, MaterialPropertyBlock const*)
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-void osc::GraphicsBackend::DrawMesh(Mesh&, Material&, glm::mat4 const&, CameraNew&, MaterialPropertyBlock const*)
-{
-    OSC_NOT_IMPLEMENTED
-}
-
 void osc::GraphicsBackend::DrawMesh(Mesh&, glm::vec3 const& pos, glm::quat const& rot, CameraNew&, MaterialPropertyBlock const*)
 {
-    OSC_NOT_IMPLEMENTED
-}
-
-void osc::GraphicsBackend::Blit(Texture2D&)
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-void osc::GraphicsBackend::Blit(Texture2D&, Rect const& srcRect, Rect const& destRect)
-{
-    OSC_NOT_IMPLEMENTED
-}
-
-void osc::GraphicsBackend::Blit(Texture2D&, Texture2D&, Rect const& srcRect, Rect const& destRect)
-{
-    OSC_NOT_IMPLEMENTED
+    // - copy the data onto the camera's command buffer list
+    // - deal with any batch flushing etc.
+    throw std::runtime_error{"nyi"};
 }
