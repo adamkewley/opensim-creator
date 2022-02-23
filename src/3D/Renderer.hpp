@@ -1,6 +1,7 @@
 #pragma once
 
-#include "src/3D/Model.hpp"
+#include "src/3D/Model.hpp"  // Rect, AABB
+#include "src/Utils/UID.hpp"
 
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
@@ -17,18 +18,19 @@
 
 namespace osc
 {
-    enum MeshTopographyNew {
-        MeshTopographyNew_Triangles,
-        MeshTopographyNew_Lines,
+    enum class MeshTopography2 {
+        Triangles = 0,
+        Lines,
+        TOTAL,
     };
 
-    std::ostream& operator<<(std::ostream&, MeshTopographyNew);
-    std::string to_string(MeshTopographyNew);
+    std::ostream& operator<<(std::ostream&, MeshTopography2);
+    std::string to_string(MeshTopography2);
 
     class Mesh final {
     public:
         Mesh();
-        Mesh(MeshTopographyNew, nonstd::span<glm::vec3 const> verts);
+        Mesh(MeshTopography2, nonstd::span<glm::vec3 const> verts);
         Mesh(Mesh const&);
         Mesh(Mesh&&) noexcept;
         ~Mesh() noexcept;
@@ -36,12 +38,8 @@ namespace osc
         Mesh& operator=(Mesh const&);
         Mesh& operator=(Mesh&&) noexcept;
 
-        bool operator==(Mesh const&) const;
-        bool operator!=(Mesh const&) const;
-        bool operator<(Mesh const&) const;
-
-        MeshTopographyNew getTopography() const;
-        void setTopography(MeshTopographyNew);
+        MeshTopography2 getTopography() const;
+        void setTopography(MeshTopography2);
 
         nonstd::span<glm::vec3 const> getVerts() const;
         void setVerts(nonstd::span<glm::vec3 const>);
@@ -54,7 +52,7 @@ namespace osc
         void scaleTexCoords(float);
 
         int getNumIndices() const;
-        std::vector<uint32_t> getIndices() const;  // careful: copies
+        std::vector<uint32_t> getIndices() const;
         void setIndices(nonstd::span<uint16_t const>);
         void setIndices(nonstd::span<uint32_t const>);
 
@@ -68,12 +66,24 @@ namespace osc
     private:
         friend class GraphicsBackend;
         friend struct std::hash<Mesh>;
+        friend bool operator==(Mesh const&, Mesh const&);
+        friend bool operator!=(Mesh const&, Mesh const&);
+        friend bool operator<(Mesh const&, Mesh const&);
+        friend bool operator>(Mesh const&, Mesh const&);
+        friend bool operator<=(Mesh const&, Mesh const&);
+        friend bool operator>=(Mesh const&, Mesh const&);
         friend std::ostream& operator<<(std::ostream&, Mesh const&);
         friend std::string to_string(Mesh const&);
 
         std::shared_ptr<Impl> m_Impl;
     };
 
+    bool operator==(Mesh const&, Mesh const&);
+    bool operator!=(Mesh const&, Mesh const&);
+    bool operator<(Mesh const&, Mesh const&);
+    bool operator>(Mesh const&, Mesh const&);
+    bool operator<=(Mesh const&, Mesh const&);
+    bool operator>=(Mesh const&, Mesh const&);
     std::ostream& operator<<(std::ostream&, Mesh const&);
     std::string to_string(Mesh const&);
 }
@@ -88,19 +98,21 @@ namespace std
 
 namespace osc
 {
-    enum TextureWrapMode {
-        TextureWrapMode_Repeat,
-        TextureWrapMode_Clamp,
-        TextureWrapMode_Mirror,
+    enum class TextureWrapMode {
+        Repeat = 0,
+        Clamp,
+        Mirror,
+        TOTAL,
     };
 
     std::ostream& operator<<(std::ostream&, TextureWrapMode);
     std::string to_string(TextureWrapMode);
 
-    enum TextureFilterMode {
-        TextureFilterMode_Nearest,
-        TextureFilterMode_Linear,
-        TextureFilterMode_Mipmap
+    enum class TextureFilterMode {
+        Nearest = 0,
+        Linear,
+        Mipmap,
+        TOTAL,
     };
 
     std::ostream& operator<<(std::ostream&, TextureFilterMode);
@@ -110,18 +122,14 @@ namespace osc
     class Texture2D final {
     public:
         // RGBA32, SRGB
-        Texture2D(int width, int height, nonstd::span<Rgba32 const>);
-        Texture2D(int width, int height, nonstd::span<glm::vec4 const>);
+        Texture2D(int width, int height, nonstd::span<Rgba32 const> pixelsRowByRow);
+        Texture2D(int width, int height, nonstd::span<glm::vec4 const> pixelsRowByRow);
         Texture2D(Texture2D const&);
         Texture2D(Texture2D&&) noexcept;
         ~Texture2D() noexcept;
 
         Texture2D& operator=(Texture2D const&);
         Texture2D& operator=(Texture2D&&) noexcept;
-
-        bool operator==(Texture2D const&) const;
-        bool operator!=(Texture2D const&) const;
-        bool operator<(Texture2D const&) const;
 
         int getWidth() const;
         int getHeight() const;
@@ -143,12 +151,24 @@ namespace osc
     private:
         friend class GraphicsBackend;
         friend struct std::hash<Texture2D>;
+        friend bool operator==(Texture2D const&, Texture2D const&);
+        friend bool operator!=(Texture2D const&, Texture2D const&);
+        friend bool operator<(Texture2D const&, Texture2D const&);
+        friend bool operator>(Texture2D const&, Texture2D const&);
+        friend bool operator<=(Texture2D const&, Texture2D const&);
+        friend bool operator>=(Texture2D const&, Texture2D const&);
         friend std::ostream& operator<<(std::ostream&, Texture2D const&);
         friend std::string to_string(Texture2D const&);
 
         std::shared_ptr<Impl> m_Impl;
     };
 
+    bool operator==(Texture2D const&, Texture2D const&);
+    bool operator!=(Texture2D const&, Texture2D const&);
+    bool operator<(Texture2D const&, Texture2D const&);
+    bool operator>(Texture2D const&, Texture2D const&);
+    bool operator<=(Texture2D const&, Texture2D const&);
+    bool operator>=(Texture2D const&, Texture2D const&);
     std::ostream& operator<<(std::ostream&, Texture2D const&);
     std::string to_string(Texture2D const&);
 }
@@ -164,30 +184,28 @@ namespace std
 namespace osc
 {
     // data type of a property in a shader (e.g. vec3)
-    enum ShaderType {
-        ShaderType_Float = 0,
-        ShaderType_Int,
-        ShaderType_Matrix,
-        ShaderType_Texture,
-        ShaderType_Vector,
-        ShaderType_TOTAL,
+    enum class ShaderType {
+        Float = 0,
+        Int,
+        Matrix,
+        Texture,
+        Vector,
+        TOTAL,
     };
 
     std::ostream& operator<<(std::ostream&, ShaderType);
     std::string to_string(ShaderType);
 
-    // returns a globally unique lookup ID for a shader property name
+    // globally-stored string storage
     //
-    // This ID is guaranteed to not change during the application lifetime. It can
-    // be used to accelerate runtime property lookups. However, don't save it anywhere
-    // because the underlying algorithm may change between versions/installations of
-    // OSC
-    size_t ConvertPropertyNameToNameID(std::string_view propertyName);
+    // guarantees that the given `propertyName` maps to exactly one UID throughout
+    // a single process's lifetime
+    UID StorePropertyNameToUID(std::string_view propertyName);
+    std::optional<std::string_view> TryLoadPropertyNameFromUID(UID propertyID);
 
     // a handle to a shader
     class Shader final {
     public:
-        static Shader compile(char const* src);
         explicit Shader(char const* src);  // throws on compile error
         Shader(Shader const&);
         Shader(Shader&&) noexcept;
@@ -196,14 +214,10 @@ namespace osc
         Shader& operator=(Shader const&);
         Shader& operator=(Shader&&) noexcept;
 
-        bool operator==(Shader const&) const;
-        bool operator!=(Shader const&) const;
-        bool operator<(Shader const&) const;
-
         std::string const& getName() const;
 
-        int findPropertyIndex(std::string_view propertyName) const;
-        int findPropertyIndex(size_t propertyNameID) const;
+        std::optional<int> findPropertyIndex(std::string_view propertyName) const;
+        std::optional<int> findPropertyIndex(UID propertyNameID) const;
 
         int getPropertyCount() const;
         std::string const& getPropertyName(int propertyIndex) const;
@@ -214,12 +228,24 @@ namespace osc
     private:
         friend class GraphicsBackend;
         friend struct std::hash<Shader>;
+        friend bool operator==(Shader const&, Shader const&);
+        friend bool operator!=(Shader const&, Shader const&);
+        friend bool operator<(Shader const&, Shader const&);
+        friend bool operator>(Shader const&, Shader const&);
+        friend bool operator<=(Shader const&, Shader const&);
+        friend bool operator>=(Shader const&, Shader const&);
         friend std::ostream& operator<<(std::ostream&, Shader const&);
         friend std::string to_string(Shader const&);
 
         std::shared_ptr<Impl> m_Impl;
     };
 
+    bool operator==(Shader const&, Shader const&);
+    bool operator!=(Shader const&, Shader const&);
+    bool operator<(Shader const&, Shader const&);
+    bool operator>(Shader const&, Shader const&);
+    bool operator<=(Shader const&, Shader const&);
+    bool operator>=(Shader const&, Shader const&);
     std::ostream& operator<<(std::ostream&, Shader const&);
     std::string to_string(Shader const&);
 }
@@ -245,54 +271,56 @@ namespace osc
         Material& operator=(Material const&);
         Material& operator=(Material&&) noexcept;
 
-        bool operator==(Material const&) const;
-        bool operator!=(Material const&) const;
-        bool operator<(Material const&) const;
-
         Shader const& getShader() const;
 
         bool hasProperty(std::string_view propertyName) const;
-        bool hasProperty(size_t propertyNameID) const;
+        bool hasProperty(UID propertyNameID) const;
 
-        // equivalent to `setVector("Color", ...) etc.
-        glm::vec4 const& getColor() const;
+        glm::vec4 const* getColor() const;
         void setColor(glm::vec4 const&);
 
-        float getFloat(std::string_view propertyName) const;
-        float getFloat(size_t propertyNameID) const;
+        float const* getFloat(std::string_view propertyName) const;
+        float const* getFloat(UID propertyNameID) const;
         void setFloat(std::string_view propertyName, float);
-        void setFloat(size_t propertyNameID, float);
+        void setFloat(UID propertyNameID, float);
 
-        int getInt(std::string_view propertyName) const;
-        int getInt(size_t propertyNameID) const;
+        int const* getInt(std::string_view propertyName) const;
+        int const* getInt(UID propertyNameID) const;
         void setInt(std::string_view propertyName, int);
-        void setInt(size_t propertyNameID, int);
+        void setInt(UID propertyNameID, int);
 
-        Texture2D const& getTexture(std::string_view propertyName) const;
-        Texture2D const& getTexture(size_t propertyNameID) const;
-        void setTexture(std::string_view propertyName, Texture2D);
-        void setTexture(size_t propertyNameID, Texture2D);
+        Texture2D const* getTexture(std::string_view propertyName) const;
+        Texture2D const* getTexture(UID propertyNameID) const;
+        void setTexture(std::string_view propertyName, Texture2D const&);
+        void setTexture(UID propertyNameID, Texture2D const&);
 
-        glm::vec4 const& getVector(std::string_view propertyName) const;
-        glm::vec4 const& getVector(size_t propertyNameID) const;
+        glm::vec4 const* getVector(std::string_view propertyName) const;
+        glm::vec4 const* getVector(UID propertyNameID) const;
         void setVector(std::string_view propertyName, glm::vec4 const&);
-        void setVector(size_t propertyNameID, glm::vec4 const&);
+        void setVector(UID propertyNameID, glm::vec4 const&);
 
-        glm::mat4 const& getMatrix(std::string_view propertyName) const;
-        glm::mat4 const& getMatrix(size_t propertyNameID) const;
+        glm::mat4 const* getMatrix(std::string_view propertyName) const;
+        glm::mat4 const* getMatrix(UID propertyNameID) const;
         void setMatrix(std::string_view propertyName, glm::mat4 const&);
-        void setMatrix(size_t propertyNameID, glm::mat4 const&);
+        void setMatrix(UID propertyNameID, glm::mat4 const&);
 
         class Impl;
     private:
         friend class GraphicsBackend;
         friend struct std::hash<Material>;
+        friend bool operator==(Material const&, Material const&);
+        friend bool operator!=(Material const&, Material const&);
+        friend bool operator<(Material const&, Material const&);
         friend std::ostream& operator<<(std::ostream&, Material const&);
         friend std::string to_string(Material const&);
 
         std::shared_ptr<Impl> m_Impl;
     };
 
+    up to implementing the forwarding methods
+    bool operator==(Material const&, Material const&);
+    bool operator!=(Material const&, Material const&);
+    bool operator<(Material const&, Material const&);
     std::ostream& operator<<(std::ostream&, Material const&);
     std::string to_string(Material const&);
 }
@@ -322,55 +350,56 @@ namespace osc
         MaterialPropertyBlock& operator=(MaterialPropertyBlock const&);
         MaterialPropertyBlock& operator=(MaterialPropertyBlock&&) noexcept;
 
-        bool operator==(MaterialPropertyBlock const&) const;
-        bool operator!=(MaterialPropertyBlock const&) const;
-        bool operator<(MaterialPropertyBlock const&) const;
-
         void clear();
         bool isEmpty() const;
 
         bool hasProperty(std::string_view propertyName) const;
-        bool hasProperty(size_t propertyNameID) const;
+        bool hasProperty(UID propertyNameID) const;
 
-        // equivalent to `setVector("Color", ...) etc.
-        glm::vec4 const& getColor() const;
+        glm::vec4 const* getColor() const;
         void setColor(glm::vec4 const&);
 
-        float getFloat(std::string_view propertyName) const;
-        float getFloat(size_t propertyNameID) const;
+        float const* getFloat(std::string_view propertyName) const;
+        float const* getFloat(UID propertyNameID) const;
         void setFloat(std::string_view propertyName, float);
-        void setFloat(size_t propertyNameID, float);
+        void setFloat(UID propertyNameID, float);
 
-        int getInt(std::string_view propertyName) const;
-        int getInt(size_t propertyNameID) const;
+        int const* getInt(std::string_view propertyName) const;
+        int const* getInt(UID propertyNameID) const;
         void setInt(std::string_view propertyName, int);
-        void setInt(size_t propertyNameID, int);
+        void setInt(UID propertyNameID, int);
 
-        Texture2D const& getTexture(std::string_view propertyName) const;
-        Texture2D const& getTexture(size_t propertyNameID) const;
-        void setTexture(std::string_view propertyName, Texture2D);
-        void setTexture(size_t propertyNameID, Texture2D);
+        Texture2D const* getTexture(std::string_view propertyName) const;
+        Texture2D const* getTexture(UID propertyNameID) const;
+        void setTexture(std::string_view propertyName, Texture2D const&);
+        void setTexture(UID propertyNameID, Texture2D const&);
 
-        glm::vec4 const& getVector(std::string_view propertyName) const;
-        glm::vec4 const& getVector(size_t propertyNameID) const;
+        glm::vec4 const* getVector(std::string_view propertyName) const;
+        glm::vec4 const* getVector(UID propertyNameID) const;
         void setVector(std::string_view propertyName, glm::vec4 const&);
-        void setVector(size_t propertyNameID, glm::vec4 const&);
+        void setVector(UID propertyNameID, glm::vec4 const&);
 
-        glm::mat4 const& getMatrix(std::string_view propertyName) const;
-        glm::mat4 const& getMatrix(size_t propertyNameID) const;
+        glm::mat4 const* getMatrix(std::string_view propertyName) const;
+        glm::mat4 const* getMatrix(UID propertyNameID) const;
         void setMatrix(std::string_view propertyName, glm::mat4 const&);
-        void setMatrix(size_t propertyNameID, glm::mat4 const&);
+        void setMatrix(UID propertyNameID, glm::mat4 const&);
 
         class Impl;
     private:
         friend class GraphicsBackend;
         friend struct std::hash<MaterialPropertyBlock>;
+        friend bool operator==(MaterialPropertyBlock const&, MaterialPropertyBlock const&);
+        friend bool operator!=(MaterialPropertyBlock const&, MaterialPropertyBlock const&);
+        friend bool operator<(MaterialPropertyBlock const&, MaterialPropertyBlock const&);
         friend std::ostream& operator<<(std::ostream&, MaterialPropertyBlock const&);
         friend std::string to_string(MaterialPropertyBlock const&);
 
         std::shared_ptr<Impl> m_Impl;
     };
 
+    bool operator==(MaterialPropertyBlock const&, MaterialPropertyBlock const&);
+    bool operator!=(MaterialPropertyBlock const&, MaterialPropertyBlock const&);
+    bool operator<(MaterialPropertyBlock const&, MaterialPropertyBlock const&);
     std::ostream& operator<<(std::ostream&, MaterialPropertyBlock const&);
     std::string to_string(MaterialPropertyBlock const&);
 }
@@ -385,30 +414,26 @@ namespace std
 
 namespace osc
 {
-    enum CameraProjection {
-        CameraProjection_Perspective,
-        CameraProjection_Orthographic,
+    enum class CameraProjection {
+        Perspective,
+        Orthographic,
     };
 
     std::ostream& operator<<(std::ostream&, CameraProjection);
     std::string to_string(CameraProjection);
 
-    class CameraNew final {
+    class Camera2 final {
     public:
-        CameraNew();  // draws to screen
-        explicit CameraNew(Texture2D);  // draws to texture
-        CameraNew(CameraNew const&);
-        CameraNew(CameraNew&&) noexcept;
-        ~CameraNew() noexcept;
+        Camera2();  // draws to screen
+        explicit Camera2(Texture2D);  // draws to texture
+        Camera2(Camera2 const&);
+        Camera2(Camera2&&) noexcept;
+        ~Camera2() noexcept;
 
-        CameraNew& operator=(CameraNew const&);
-        CameraNew& operator=(CameraNew&&) noexcept;
+        Camera2& operator=(Camera2 const&);
+        Camera2& operator=(Camera2&&) noexcept;
 
-        bool operator==(CameraNew const&) const;
-        bool operator!=(CameraNew const&) const;
-        bool operator<(CameraNew const&) const;
-
-        glm::vec4 getBackgroundColor() const;
+        glm::vec4 const& getBackgroundColor() const;
         void setBackgroundColor(glm::vec4 const&);
 
         CameraProjection getCameraProjection() const;
@@ -430,29 +455,29 @@ namespace osc
         float getFarClippingPlane() const;
         void setFarClippingPlane(float);
 
-        std::optional<Texture2D> getTexture() const;
-        void setTexture(Texture2D);
+        Texture2D const* getTexture() const;  // returns nullptr if drawing directly to screen
+        void setTexture(Texture2D const&);
         void setTexture();  // resets to drawing to screen
 
         // where on the screen the camera is rendered (in screen-space)
         //
         // returns rect at 0,0 with width and height of texture if drawing
         // to a texture
-        Rect getPixelRect() const;
+        Rect const& getPixelRect() const;
         void setPixelRect(Rect const&);
 
         int getPixelWidth() const;
         int getPixelHeight() const;
         float getAspectRatio() const;
 
-        std::optional<Rect> getScissorRect() const;
+        std::optional<Rect> getScissorRect() const;  // std::nullopt if not scissor testing
         void setScissorRect(Rect const&);  // rect is in pixel space?
         void setScissorRect();  // resets to having no scissor
 
-        glm::vec3 getPosition() const;
+        glm::vec3 const& getPosition() const;
         void setPosition(glm::vec3 const&);
 
-        glm::vec3 getDirection() const;
+        glm::vec3 const& getDirection() const;
         void setDirection(glm::vec3 const&);
 
         glm::mat4 const& getCameraToWorldMatrix() const;
@@ -465,22 +490,28 @@ namespace osc
         class Impl;
     private:
         friend class GraphicsBackend;
-        friend struct std::hash<CameraNew>;
-        friend std::ostream& operator<<(std::ostream&, CameraNew const&);
-        friend std::string to_string(CameraNew const&);
+        friend struct std::hash<Camera2>;
+        friend bool operator==(Camera2 const&, Camera2 const&);
+        friend bool operator!=(Camera2 const&, Camera2 const&);
+        friend bool operator<(Camera2 const&, Camera2 const&);
+        friend std::ostream& operator<<(std::ostream&, Camera2 const&);
+        friend std::string to_string(Camera2 const&);
 
         std::shared_ptr<Impl> m_Impl;
     };
 
-    std::ostream& operator<<(std::ostream&, CameraNew const&);
-    std::string to_string(CameraNew const&);
+    bool operator==(Camera2 const&, Camera2 const&);
+    bool operator!=(Camera2 const&, Camera2 const&);
+    bool operator<(Camera2 const&, Camera2 const&);
+    std::ostream& operator<<(std::ostream&, Camera2 const&);
+    std::string to_string(Camera2 const&);
 }
 
 namespace std
 {
     template<>
-    struct hash<osc::CameraNew> {
-        size_t operator()(osc::CameraNew const&) const;
+    struct hash<osc::Camera2> {
+        size_t operator()(osc::Camera2 const&) const;
     };
 }
 
@@ -488,6 +519,6 @@ namespace osc
 {
     class Graphics final {
     public:
-        static void DrawMesh(Mesh&, glm::vec3 const& pos, CameraNew&, MaterialPropertyBlock const* = nullptr);
+        static void DrawMesh(Mesh, glm::vec3 const& pos, Material, Camera2&, std::optional<MaterialPropertyBlock> = std::nullopt);
     };
 }
