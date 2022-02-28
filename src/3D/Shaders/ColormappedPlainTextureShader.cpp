@@ -32,11 +32,12 @@ static char const g_FragmentShader[] = R"(
 )";
 
 osc::ColormappedPlainTextureShader::ColormappedPlainTextureShader() :
-    program{gl::CreateProgramFrom(
-        gl::CompileFromSource<gl::VertexShader>(g_VertexShader),
-        gl::CompileFromSource<gl::FragmentShader>(g_FragmentShader))},
-
-    uMVP{gl::GetUniformLocation(program, "uMVP")},
-    uSamplerAlbedo{gl::GetUniformLocation(program, "uSamplerAlbedo")},
-    uSamplerMultiplier{gl::GetUniformLocation(program, "uSamplerMultiplier")} {
+    program{
+        gl::Shader{GL_VERTEX_SHADER, g_VertexShader},
+        gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader}
+    },
+    uMVP{program, "uMVP"},
+    uSamplerAlbedo{program, "uSamplerAlbedo"},
+    uSamplerMultiplier{program, "uSamplerMultiplier"}
+{
 }

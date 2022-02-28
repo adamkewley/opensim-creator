@@ -32,11 +32,12 @@ static char const g_FragmentShader[] = R"(
 )";
 
 osc::PlainTextureShader::PlainTextureShader() :
-    program{gl::CreateProgramFrom(
-        gl::CompileFromSource<gl::VertexShader>(g_VertexShader),
-        gl::CompileFromSource<gl::FragmentShader>(g_FragmentShader))},
-
-    uMVP{gl::GetUniformLocation(program, "uMVP")},
-    uTextureScaler{gl::GetUniformLocation(program, "uTextureScaler")},
-    uSampler0{gl::GetUniformLocation(program, "uSampler0")} {
+    program{
+        gl::Shader{GL_VERTEX_SHADER, g_VertexShader},
+        gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader}
+    },
+    uMVP{program, "uMVP"},
+    uTextureScaler{program, "uTextureScaler"},
+    uSampler0{program, "uSampler0"}
+{
 }

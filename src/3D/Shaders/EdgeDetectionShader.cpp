@@ -79,12 +79,13 @@ static char g_FragmentShader[] = R"(
 )";
 
 osc::EdgeDetectionShader::EdgeDetectionShader() :
-    program{gl::CreateProgramFrom(
-          gl::CompileFromSource<gl::VertexShader>(g_VertexShader),
-          gl::CompileFromSource<gl::FragmentShader>(g_FragmentShader))},
-
-    uMVP{gl::GetUniformLocation(program, "uMVP")},
-    uSampler0{gl::GetUniformLocation(program, "uSampler0")},
-    uRimRgba{gl::GetUniformLocation(program, "uRimRgba")},
-    uRimThickness{gl::GetUniformLocation(program, "uRimThickness")} {
+    program{
+        gl::Shader{GL_VERTEX_SHADER, g_VertexShader},
+        gl::Shader{GL_FRAGMENT_SHADER, g_FragmentShader}
+    },
+    uMVP{program, "uMVP"},
+    uSampler0{program, "uSampler0"},
+    uRimRgba{program, "uRimRgba"},
+    uRimThickness{program, "uRimThickness"}
+{
 }
