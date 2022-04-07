@@ -6,6 +6,7 @@
 #include "src/Screens/ImGuizmoDemoScreen.hpp"
 #include "src/Screens/ImGuiDemoScreen.hpp"
 #include "src/Screens/InstancedRendererScreen.hpp"
+#include "src/Screens/MarkerConverterScreen.hpp"
 #include "src/Screens/MathExperimentsScreen.hpp"
 #include "src/Screens/MeshHittestScreen.hpp"
 #include "src/Screens/MeshHittestWithBVHScreen.hpp"
@@ -37,6 +38,7 @@ struct osc::ExperimentsScreen::Impl final {
         { "Hit testing ray-triangle, but with BVH acceleration", transition<MeshHittestWithBVHScreen> },
         { "OpenSim mesh importer wizard", transition<MeshImporterScreen> },
         { "Instanced rendering", transition<InstancedRendererScreen> },
+        { "Marker converter", transition<MarkerConverterScreen> },
         { "ImGuizmo", transition<ImGuizmoDemoScreen> },
         { "ImGui", transition<ImGuiDemoScreen> },
     };

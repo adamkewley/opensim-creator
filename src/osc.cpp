@@ -2,6 +2,7 @@
 #include "src/Platform/App.hpp"
 #include "src/Platform/Log.hpp"
 #include "src/Screens/LoadingScreen.hpp"
+#include "src/Screens/MarkerConverterScreen.hpp"
 #include "src/Screens/SplashScreen.hpp"
 
 #include <iostream>
@@ -62,7 +63,7 @@ int main(int argc, char** argv)
 
         if (argc <= 0)
         {
-            app.show<osc::SplashScreen>();
+            app.show<osc::MarkerConverterScreen>();
         }
         else
         {

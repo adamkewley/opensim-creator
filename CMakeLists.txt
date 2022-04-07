@@ -298,6 +298,8 @@ add_executable(osc
     src/Screens/InstancedRendererScreen.hpp
     src/Screens/LoadingScreen.cpp
     src/Screens/LoadingScreen.hpp
+    src/Screens/MarkerConverterScreen.cpp
+    src/Screens/MarkerConverterScreen.hpp
     src/Screens/MathExperimentsScreen.cpp
     src/Screens/MathExperimentsScreen.hpp
     src/Screens/MeshHittestScreen.cpp
