@@ -1,3 +1,11 @@
+> ⚠️⚠️⚠️⚠️⚠️
+> 
+> **This repo has moved to: https://github.com/ComputationalBiomechanicsLab/opensim-creator**
+>
+> Go there for the latest releases!
+> 
+> ⚠️⚠️⚠️⚠️⚠️
+
 # OpenSim Creator <img src="resources/logo.png" align="right" alt="OpenSim Creator Logo" width="128" height="128" />
 
 > A thin UI for building OpenSim models
